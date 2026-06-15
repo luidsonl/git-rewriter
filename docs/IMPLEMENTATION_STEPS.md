@@ -18,12 +18,13 @@ This document outlines the milestones for developing the Git Rewriter.
 - [x] Write unit tests for the scanner logic.
 
 ## Milestone 3: Frontend MVP - Data Visualization
-- [ ] Build UI Atoms (Button, Input, Table Cell).
-- [ ] Build Molecules (Search Bar, Contributor Row).
+- [x] Build UI Atoms (Button, TextInput, Avatar, Badge, PageTitle).
+- [x] Build Molecules (StatCard, EmptyState, ActivityBar, SortButton, RepoHeader).
 - [x] Build Dashboard Page (stats overview — repo name, commits, contributors, branches).
-- [ ] Build Contributors Page (list of contributors).
-- [ ] Build Commit Explorer Page (list of commits).
-- [ ] Connect frontend pages to Tauri `invoke` commands.
+- [x] Build Contributors Page (sortable table with search and activity bars).
+- [x] Build Commit Explorer Page (searchable list with detail panel and pagination).
+- [ ] Build Rewrite Preview Page.
+- [x] Connect frontend pages to Tauri `invoke` commands.
 
 ## Milestone 4: The Rewrite Engine (Core Backend)
 - [ ] Implement the DAG rewriting algorithm in Rust.
