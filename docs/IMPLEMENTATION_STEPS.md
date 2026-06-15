@@ -12,18 +12,18 @@ This document outlines the milestones for developing the Git Rewriter.
 
 ## Milestone 2: Backend MVP - Read-Only Git Scanner
 - [x] Implement `gix` repository opening logic.
-- [ ] Implement commit scanner (traverse DAG).
-- [ ] Implement contributor extraction and aggregation.
-- [ ] Create Tauri commands: `open_repository` (done), `scan_repository`, `get_contributors`, `get_commits`.
-- [ ] Write unit tests for the scanner logic using mock repositories.
+- [x] Implement commit scanner (traverse DAG).
+- [x] Implement contributor extraction and aggregation.
+- [x] Create Tauri commands: `open_repository`, `scan_repository`.
+- [x] Write unit tests for the scanner logic.
 
 ## Milestone 3: Frontend MVP - Data Visualization
 - [ ] Build UI Atoms (Button, Input, Table Cell).
 - [ ] Build Molecules (Search Bar, Contributor Row).
-- [ ] Build Dashboard Page (stats overview).
+- [x] Build Dashboard Page (stats overview — repo name, commits, contributors, branches).
 - [ ] Build Contributors Page (list of contributors).
 - [ ] Build Commit Explorer Page (list of commits).
-- [ ] Connect Frontend pages to Tauri `invoke` commands.
+- [ ] Connect frontend pages to Tauri `invoke` commands.
 
 ## Milestone 4: The Rewrite Engine (Core Backend)
 - [ ] Implement the DAG rewriting algorithm in Rust.

@@ -1,12 +1,9 @@
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
-use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+pub mod git_engine;
+pub mod models;
 
-#[derive(Serialize, Deserialize)]
-pub struct RepoSummary {
-    pub path: String,
-    pub name: String,
-}
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use models::{RepoSummary, ScanResult};
+use std::path::PathBuf;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
@@ -52,12 +49,23 @@ async fn open_repository(path: String) -> Result<RepoSummary, String> {
     }
 }
 
+#[tauri::command]
+async fn scan_repository(path: String) -> Result<ScanResult, String> {
+    git_engine::scanner::scan_repository(&path)
+        .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .invoke_handler(tauri::generate_handler![greet, open_settings_window, open_repository])
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            open_settings_window,
+            open_repository,
+            scan_repository
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
