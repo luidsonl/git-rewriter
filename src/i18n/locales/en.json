@@ -1,0 +1,25 @@
+{
+  "translation": {
+    "app": {
+      "title": "Git Rewriter",
+      "subtitle": "Minimalist history editor"
+    },
+    "nav": {
+      "dashboard": "Dashboard",
+      "contributors": "Contributors",
+      "explorer": "Explorer",
+      "preview": "Preview",
+      "settings": "Settings"
+    },
+    "settings": {
+      "title": "Settings",
+      "language": "Language",
+      "theme": "Theme"
+    },
+    "actions": {
+      "open_repo": "Open Repository",
+      "cancel": "Cancel",
+      "save": "Save"
+    }
+  }
+}

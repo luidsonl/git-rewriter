@@ -14,6 +14,14 @@ export default defineConfig(async () => ({
     setupFiles: ['./src/tests/setup.ts'],
     globals: true,
   },
+  build: {
+    rollupOptions: {
+      input: {
+        main: new URL('./index.html', import.meta.url).pathname,
+        settings: new URL('./settings.html', import.meta.url).pathname,
+      },
+    },
+  },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //
