@@ -1,13 +1,17 @@
 import { useTranslation } from 'react-i18next';
 import { useNotificationStore } from '../stores/notificationStore';
+import { emit } from '@tauri-apps/api/event';
 
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
   const { addToast } = useNotificationStore();
 
-  const handleLanguageChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    i18n.changeLanguage(e.target.value);
-    addToast('Language updated', 'success');
+  const handleLanguageChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const newLang = e.target.value;
+    i18n.changeLanguage(newLang);
+    localStorage.setItem('language', newLang);
+    await emit('language-changed', newLang);
+    addToast(t('settings.language') + ' updated', 'success');
   };
 
   return (
