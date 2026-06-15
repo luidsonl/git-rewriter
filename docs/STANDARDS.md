@@ -14,7 +14,11 @@ Components must follow the Atomic Design pattern:
 - `pages/`: Specific instances of templates that handle routing, data fetching, and state management.
 
 ## 3. Tech Stack Conventions
-- **Styling:** Tailwind CSS. Use utility classes. For complex reusable styles, consider using `cva` (class-variance-authority). Dark mode is default.
+- **Styling (Tailwind CSS):** 
+  - Use utility classes.
+  - **Design Language:** Minimalist and Monochromatic. Focus on contrast and typography rather than colors.
+  - **Animations:** Strictly avoid excessive or flashy animations. Use only subtle transitions (e.g., hover states, simple fade-ins).
+  - For complex reusable styles, consider using `cva` (class-variance-authority). Dark mode is default.
 - **State Management:** Keep state as close to where it's used as possible. Use React Context or a lightweight library (Zustand) for global state if necessary.
 - **Data Fetching:** Tauri commands (`invoke`) should be wrapped in custom hooks or services to separate UI from data fetching logic.
 

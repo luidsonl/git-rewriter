@@ -11,7 +11,8 @@
 1. **Safety:** All git operations that mutate history MUST have a backup strategy. Commits are immutable; rewriting means creating new SHAs.
 2. **TDD:** The Rust backend rewrite engine MUST be built using Test-Driven Development.
 3. **Architecture:** The frontend strictly follows **Atomic Design** (`atoms`, `molecules`, `organisms`, `templates`, `pages`).
-4. **Docs:** Refer to `docs/PROJECT_SPEC.md` for features, `docs/STANDARDS.md` for rules, and `docs/IMPLEMENTATION_STEPS.md` for current progress.
+4. **Design:** The UI must be **minimalist and monochromatic**, avoiding excessive animations. Focus on typography, spacing, and neutral colors.
+5. **Docs:** Refer to `docs/PROJECT_SPEC.md` for features, `docs/STANDARDS.md` for rules, and `docs/IMPLEMENTATION_STEPS.md` for current progress.
 
 ## How to Help
 When suggesting code:
