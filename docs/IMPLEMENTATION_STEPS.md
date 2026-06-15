@@ -5,16 +5,16 @@ This document outlines the milestones for developing the Git Rewriter.
 ## Milestone 1: Project Scaffolding & Setup (Current)
 - [x] Define project specs and standards.
 - [x] Initialize Tauri + React + TypeScript + Tailwind.
-- [ ] Set up Atomic Design folder structure.
-- [ ] Set up Frontend testing (Vitest + RTL).
-- [ ] Set up Backend testing (Cargo test).
+- [x] Set up Atomic Design folder structure.
+- [x] Set up Frontend testing (Vitest + RTL).
+- [x] Set up Backend testing (Cargo test).
 - [x] Create AI Context files.
 
 ## Milestone 2: Backend MVP - Read-Only Git Scanner
-- [ ] Implement `gix` repository opening logic.
+- [x] Implement `gix` repository opening logic.
 - [ ] Implement commit scanner (traverse DAG).
 - [ ] Implement contributor extraction and aggregation.
-- [ ] Create Tauri commands: `open_repository`, `scan_repository`, `get_contributors`, `get_commits`.
+- [ ] Create Tauri commands: `open_repository` (done), `scan_repository`, `get_contributors`, `get_commits`.
 - [ ] Write unit tests for the scanner logic using mock repositories.
 
 ## Milestone 3: Frontend MVP - Data Visualization
