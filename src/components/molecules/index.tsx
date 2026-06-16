@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { FolderOpen, Loader2 } from 'lucide-react';
+export { ConfirmDialog } from './ConfirmDialog';
 
 // ─── StatCard ────────────────────────────────────────────────────────────────
 interface StatCardProps {

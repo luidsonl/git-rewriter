@@ -38,8 +38,9 @@ This document outlines the milestones for developing the Git Rewriter.
 ## Milestone 5: Rewrite UI and Workflows
 - [x] Build Rewrite Preview Page (connected to backend).
 - [x] Implement contributor merging flow in UI (select identities → preview → apply).
-- [ ] Implement single commit editing flow in UI (edit in CommitExplorerPage).
-- [ ] Integrate safety dialogs and backup visualization.
+- [x] Implement single commit editing flow in UI (edit message/author/committer in CommitExplorerPage).
+- [x] Integrate safety dialogs (ConfirmDialog) and backup visualization (show backup_ref).
+- [ ] Implement rollback UI in PreviewPage.
 
 ## Milestone 6: Polish and QA
 - [ ] Manual QA based on scenarios in PROJECT_SPEC.md.

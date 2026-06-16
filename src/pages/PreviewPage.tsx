@@ -5,7 +5,7 @@ import { useRepositoryStore, Contributor, RewritePlan, RewriteOperation, CommitR
 import { useNotificationStore } from '../stores/notificationStore';
 import { GitCommit, Users, Shuffle, AlertTriangle, Loader2 } from 'lucide-react';
 import { Button, Avatar, Badge, PageTitle } from '../components/atoms';
-import { EmptyState } from '../components/molecules';
+import { EmptyState, ConfirmDialog } from '../components/molecules';
 
 interface Suggestion {
   targetName: string;
@@ -137,6 +137,8 @@ export function PreviewPage() {
   const [plan, setPlan] = useState<RewritePlan | null>(null);
   const [isComputing, setIsComputing] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [showBackupInfo, setShowBackupInfo] = useState(false);
 
   const suggestions = useMemo(() => {
     if (!scanResult) return [];
@@ -173,6 +175,7 @@ export function PreviewPage() {
 
   const handleApply = async () => {
     if (!currentRepo || selectedRewrites.size === 0) return;
+    setShowConfirm(false);
     setIsApplying(true);
     try {
       const operations = toOperations(suggestions, selectedRewrites);
@@ -211,7 +214,7 @@ export function PreviewPage() {
                   <AlertTriangle size={14} className="text-amber-500" />
                   {plan.total_affected} commits affected
                 </div>
-                <Button onClick={handleApply} variant="primary" disabled={isApplying}>
+                <Button onClick={() => setShowConfirm(true)} variant="primary" disabled={isApplying}>
                   {isApplying ? <Loader2 size={16} className="animate-spin" /> : <Shuffle size={16} />}
                   Apply Rewrite
                 </Button>
@@ -220,6 +223,24 @@ export function PreviewPage() {
           </div>
         )}
       </div>
+
+      <ConfirmDialog
+        open={showConfirm}
+        title="Apply Rewrite"
+        description={`This will rewrite ${plan?.total_affected ?? 0} commit(s) across ${plan?.branches_affected?.length ?? 0} branch(es). A backup will be created before proceeding.`}
+        confirmLabel="Apply"
+        destructive
+        loading={isApplying}
+        onConfirm={handleApply}
+        onCancel={() => setShowConfirm(false)}
+      >
+        {plan?.backup_ref && (
+          <div className="bg-neutral-900 border border-neutral-800 rounded-md p-3 text-xs">
+            <span className="text-neutral-500">Backup ref: </span>
+            <span className="text-neutral-300 font-mono">{plan.backup_ref}</span>
+          </div>
+        )}
+      </ConfirmDialog>
 
       {!currentRepo || !scanResult ? (
         <EmptyState

@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useRepositoryStore, CommitInfo } from '../stores/repositoryStore';
-import { Search, ChevronRight } from 'lucide-react';
-import { TextInput, Avatar, Badge, PageTitle } from '../components/atoms';
-import { EmptyState } from '../components/molecules';
+import { invoke } from '@tauri-apps/api/core';
+import { useRepositoryStore, CommitInfo, CommitRewrite, RewritePlan } from '../stores/repositoryStore';
+import { useNotificationStore } from '../stores/notificationStore';
+import { Search, ChevronRight, Pencil, X, Loader2 } from 'lucide-react';
+import { TextInput, Avatar, Badge, PageTitle, Button } from '../components/atoms';
+import { EmptyState, ConfirmDialog } from '../components/molecules';
 
 function formatDate(raw: string): string {
   const seconds = parseInt(raw, 10);
@@ -13,13 +15,151 @@ function formatDate(raw: string): string {
   });
 }
 
-function CommitPanel({ commit, onClose }: { commit: CommitInfo; onClose: () => void }) {
+function CommitPanel({ commit, repoPath, onClose }: { commit: CommitInfo; repoPath: string; onClose: () => void }) {
+  const { addToast } = useNotificationStore();
+  const [isEditing, setIsEditing] = useState(false);
+  const [editMessage, setEditMessage] = useState(commit.message);
+  const [editAuthorName, setEditAuthorName] = useState(commit.author_name);
+  const [editAuthorEmail, setEditAuthorEmail] = useState(commit.author_email);
+  const [editCommitterName, setEditCommitterName] = useState(commit.committer_name);
+  const [editCommitterEmail, setEditCommitterEmail] = useState(commit.committer_email);
+  const [preview, setPreview] = useState<RewritePlan | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  const hasChanges =
+    editMessage !== commit.message ||
+    editAuthorName !== commit.author_name ||
+    editAuthorEmail !== commit.author_email ||
+    editCommitterName !== commit.committer_name ||
+    editCommitterEmail !== commit.committer_email;
+
+  const resetEdit = () => {
+    setEditMessage(commit.message);
+    setEditAuthorName(commit.author_name);
+    setEditAuthorEmail(commit.author_email);
+    setEditCommitterName(commit.committer_name);
+    setEditCommitterEmail(commit.committer_email);
+    setPreview(null);
+    setShowConfirm(false);
+    setIsEditing(false);
+  };
+
+  const buildOperations = () => {
+    const operations: any[] = [];
+
+    if (editMessage !== commit.message) {
+      operations.push({ Message: { target_sha: commit.sha, new_message: editMessage } });
+    }
+
+    if (
+      editAuthorName !== commit.author_name ||
+      editAuthorEmail !== commit.author_email ||
+      editCommitterName !== commit.committer_name ||
+      editCommitterEmail !== commit.committer_email
+    ) {
+      operations.push({
+        Identity: {
+          old_name: commit.author_name,
+          old_email: commit.author_email,
+          new_name: editAuthorName,
+          new_email: editAuthorEmail,
+          rewrite_committer: editCommitterName !== commit.committer_name || editCommitterEmail !== commit.committer_email,
+        },
+      });
+    }
+
+    return operations;
+  };
+
+  const handlePreview = async () => {
+    setIsSaving(true);
+    try {
+      const operations = buildOperations();
+      if (operations.length === 0) {
+        addToast('No changes to apply', 'info');
+        return;
+      }
+      const result = await invoke<RewritePlan>('preview_rewrite', {
+        path: repoPath,
+        operations,
+      });
+      setPreview(result);
+    } catch (e) {
+      addToast(`Preview failed: ${String(e)}`, 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleApply = async () => {
+    setShowConfirm(false);
+    setIsSaving(true);
+    try {
+      const operations = buildOperations();
+      await invoke<CommitRewrite[]>('apply_rewrite', {
+        path: repoPath,
+        operations,
+      });
+      addToast(`Commit rewritten: ${commit.sha.slice(0, 8)} → new SHA`, 'success');
+      resetEdit();
+    } catch (e) {
+      addToast(`Rewrite failed: ${String(e)}`, 'error');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <aside className="w-80 border-l border-neutral-900 bg-neutral-950 p-6 flex flex-col gap-4 overflow-y-auto shrink-0">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-neutral-400">Commit Details</span>
-        <button onClick={onClose} className="text-xs text-neutral-600 hover:text-white transition-colors">Close</button>
+        <div className="flex items-center gap-2">
+          {!isEditing && (
+            <button onClick={() => setIsEditing(true)} className="text-xs text-neutral-500 hover:text-white transition-colors flex items-center gap-1">
+              <Pencil size={12} /> Edit
+            </button>
+          )}
+          <button onClick={onClose} className="text-xs text-neutral-600 hover:text-white transition-colors">Close</button>
+        </div>
       </div>
+
+      {preview && (
+        <div className="border border-neutral-800 rounded-md p-3 bg-neutral-900/50">
+          <p className="text-xs font-medium text-neutral-300 mb-1">Rewrite Preview</p>
+          <p className="text-xs text-neutral-500 mb-2">{preview.total_affected} commit(s) will change</p>
+          {preview.backup_ref && (
+            <p className="text-xs text-neutral-600 mb-2">
+              Backup: <span className="font-mono text-neutral-500">{preview.backup_ref}</span>
+            </p>
+          )}
+          <div className="flex gap-2">
+            <Button size="sm" variant="primary" onClick={() => setShowConfirm(true)} disabled={isSaving}>
+              {isSaving ? <Loader2 size={12} className="animate-spin" /> : null}
+              Apply
+            </Button>
+            <Button size="sm" variant="ghost" onClick={resetEdit}>Cancel</Button>
+          </div>
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={showConfirm}
+        title="Apply Commit Rewrite"
+        description={`This will rewrite commit ${commit.sha.slice(0, 12)} with your changes. A backup ref will be saved.`}
+        confirmLabel="Apply"
+        destructive
+        loading={isSaving}
+        onConfirm={handleApply}
+        onCancel={() => setShowConfirm(false)}
+      >
+        {preview?.backup_ref && (
+          <div className="bg-neutral-900 border border-neutral-800 rounded-md p-3 text-xs">
+            <span className="text-neutral-500">Backup ref: </span>
+            <span className="text-neutral-300 font-mono">{preview.backup_ref}</span>
+          </div>
+        )}
+      </ConfirmDialog>
 
       <div>
         <p className="text-xs text-neutral-500 mb-1">SHA</p>
@@ -28,32 +168,71 @@ function CommitPanel({ commit, onClose }: { commit: CommitInfo; onClose: () => v
 
       <div>
         <p className="text-xs text-neutral-500 mb-1">Message</p>
-        <p className="text-sm text-white leading-relaxed">{commit.message}</p>
+        {isEditing ? (
+          <textarea
+            value={editMessage}
+            onChange={(e) => setEditMessage(e.target.value)}
+            className="w-full bg-neutral-900 border border-neutral-800 rounded-md p-2 text-sm text-white resize-none focus:outline-none focus:border-neutral-600 transition-colors"
+            rows={3}
+          />
+        ) : (
+          <p className="text-sm text-white leading-relaxed">{commit.message}</p>
+        )}
       </div>
 
       <div>
         <p className="text-xs text-neutral-500 mb-2">Author</p>
-        <div className="flex items-center gap-2">
-          <Avatar name={commit.author_name} size="sm" />
-          <div>
-            <p className="text-sm text-white">{commit.author_name}</p>
-            <p className="text-xs text-neutral-500 font-mono">{commit.author_email}</p>
+        {isEditing ? (
+          <div className="flex flex-col gap-2">
+            <TextInput value={editAuthorName} onChange={(e) => setEditAuthorName(e.target.value)} placeholder="Author name" />
+            <TextInput value={editAuthorEmail} onChange={(e) => setEditAuthorEmail(e.target.value)} placeholder="Author email" />
           </div>
-        </div>
-        <p className="text-xs text-neutral-600 mt-1">{formatDate(commit.author_date)}</p>
+        ) : (
+          <>
+            <div className="flex items-center gap-2">
+              <Avatar name={commit.author_name} size="sm" />
+              <div>
+                <p className="text-sm text-white">{commit.author_name}</p>
+                <p className="text-xs text-neutral-500 font-mono">{commit.author_email}</p>
+              </div>
+            </div>
+            <p className="text-xs text-neutral-600 mt-1">{formatDate(commit.author_date)}</p>
+          </>
+        )}
       </div>
 
       {commit.committer_name !== commit.author_name && (
         <div>
           <p className="text-xs text-neutral-500 mb-2">Committer</p>
-          <div className="flex items-center gap-2">
-            <Avatar name={commit.committer_name} size="sm" />
-            <div>
-              <p className="text-sm text-white">{commit.committer_name}</p>
-              <p className="text-xs text-neutral-500 font-mono">{commit.committer_email}</p>
+          {isEditing ? (
+            <div className="flex flex-col gap-2">
+              <TextInput value={editCommitterName} onChange={(e) => setEditCommitterName(e.target.value)} placeholder="Committer name" />
+              <TextInput value={editCommitterEmail} onChange={(e) => setEditCommitterEmail(e.target.value)} placeholder="Committer email" />
             </div>
-          </div>
-          <p className="text-xs text-neutral-600 mt-1">{formatDate(commit.commit_date)}</p>
+          ) : (
+            <>
+              <div className="flex items-center gap-2">
+                <Avatar name={commit.committer_name} size="sm" />
+                <div>
+                  <p className="text-sm text-white">{commit.committer_name}</p>
+                  <p className="text-xs text-neutral-500 font-mono">{commit.committer_email}</p>
+                </div>
+              </div>
+              <p className="text-xs text-neutral-600 mt-1">{formatDate(commit.commit_date)}</p>
+            </>
+          )}
+        </div>
+      )}
+
+      {isEditing && !preview && (
+        <div className="flex gap-2 mt-2">
+          <Button size="sm" variant="primary" onClick={handlePreview} disabled={isSaving || !hasChanges}>
+            {isSaving ? <Loader2 size={12} className="animate-spin" /> : null}
+            Preview Changes
+          </Button>
+          <Button size="sm" variant="ghost" onClick={resetEdit}>
+            <X size={12} /> Cancel
+          </Button>
         </div>
       )}
 
@@ -105,7 +284,7 @@ const PAGE_SIZE = 50;
 
 export function CommitExplorerPage() {
   const { t } = useTranslation();
-  const { scanResult } = useRepositoryStore();
+  const { currentRepo, scanResult } = useRepositoryStore();
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<CommitInfo | null>(null);
   const [page, setPage] = useState(0);
@@ -127,7 +306,6 @@ export function CommitExplorerPage() {
 
   return (
     <div className="flex h-full">
-      {/* Main list */}
       <div className="flex-1 flex flex-col overflow-hidden p-8">
         <PageTitle>{t('nav.explorer')}</PageTitle>
 
@@ -176,7 +354,6 @@ export function CommitExplorerPage() {
               </table>
             </div>
 
-            {/* Pagination */}
             <div className="flex items-center justify-between mt-4 text-xs text-neutral-600">
               <span>{filtered.length} commits</span>
               {totalPages > 1 && (
@@ -191,8 +368,13 @@ export function CommitExplorerPage() {
         )}
       </div>
 
-      {/* Details panel */}
-      {selected && <CommitPanel commit={selected} onClose={() => setSelected(null)} />}
+      {selected && (
+        <CommitPanel
+          commit={selected}
+          repoPath={currentRepo?.path ?? ''}
+          onClose={() => setSelected(null)}
+        />
+      )}
     </div>
   );
 }
