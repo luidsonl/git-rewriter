@@ -186,7 +186,7 @@ export function PreviewPage() {
         operations,
       });
       const modified = result.filter((r) => r.is_modified).length;
-      addToast(`Rewrite applied: ${modified} commits rewritten`, 'success');
+      addToast(`Rewrite applied: ${modified} commits rewritten. Backup saved.`, 'success');
 
       if (plan?.backup_ref) {
         setRecentRewrites((prev) => [
@@ -292,23 +292,21 @@ export function PreviewPage() {
       </ConfirmDialog>
 
       {recentRewrites.length > 0 && (
-        <div className="mb-8 border border-neutral-800 rounded-lg p-4 bg-neutral-900/30">
-          <div className="flex items-center gap-2 text-sm text-neutral-400 mb-3">
-            <RotateCcw size={14} />
-            Recent Rewrites
+        <div className="mb-8 border border-amber-500/30 bg-amber-500/5 rounded-lg px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm text-amber-300">
+              <RotateCcw size={14} />
+              <span className="font-medium">Backup available</span>
+            </div>
+            <Button size="sm" variant="ghost" onClick={() => setRollbackTarget(recentRewrites[0].backupRef)}>
+              <RotateCcw size={12} /> Rollback
+            </Button>
           </div>
-          <div className="flex flex-col gap-2">
-            {recentRewrites.map((rw) => (
-              <div key={rw.backupRef} className="flex items-center justify-between text-xs">
-                <div className="flex items-center gap-2 text-neutral-500">
-                  <span className="font-mono text-neutral-400">{rw.backupRef}</span>
-                  <span>{rw.summary}</span>
-                </div>
-                <Button size="sm" variant="ghost" onClick={() => setRollbackTarget(rw.backupRef)}>
-                  <RotateCcw size={12} /> Rollback
-                </Button>
-              </div>
-            ))}
+          <div className="mt-1 text-xs text-neutral-500 font-mono">
+            {recentRewrites.length} recent rewrite(s) — {recentRewrites[0].backupRef}
+          </div>
+          <div className="mt-2 text-xs text-neutral-600">
+            {recentRewrites[0].summary}
           </div>
         </div>
       )}

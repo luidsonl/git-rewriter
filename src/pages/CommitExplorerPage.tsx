@@ -108,7 +108,8 @@ function CommitPanel({ commit, repoPath, onClose, onApplied }: CommitPanelProps)
         path: repoPath,
         operations,
       });
-      addToast(`Commit rewritten: ${commit.sha.slice(0, 8)} → new SHA`, 'success');
+      const newSha = result.find((r) => r.is_modified)?.new_sha ?? result[0]?.new_sha;
+      addToast(`Commit rewritten: ${commit.sha.slice(0, 8)} → ${newSha?.slice(0, 8) ?? '?'}`, 'success');
       if (preview?.backup_ref) {
         onApplied(preview.backup_ref);
       }
@@ -318,11 +319,18 @@ export function CommitExplorerPage() {
 
   const handleSearch = (val: string) => { setSearch(val); setPage(0); };
 
-  const handleApplied = (backupRef: string) => {
+  const handleApplied = async (backupRef: string) => {
     setRecentRewrites((prev) => [
       { backupRef, timestamp: Date.now(), sha: selected?.sha ?? '' },
       ...prev,
     ]);
+    addToast('Commit rewritten. You can rollback using the "Recent Rewrites" section.', 'success');
+    setSelected(null);
+
+    if (currentRepo) {
+      const freshScan = await invoke<any>('scan_repository', { path: currentRepo.path });
+      setScanResult(freshScan);
+    }
   };
 
   const handleRollback = async () => {
@@ -363,6 +371,26 @@ export function CommitExplorerPage() {
                 onChange={(e) => handleSearch(e.target.value)}
               />
             </div>
+
+            {recentRewrites.length > 0 && (
+              <div className="mb-4 border border-amber-500/30 bg-amber-500/5 rounded-lg px-4 py-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs text-amber-300">
+                    <RotateCcw size={12} />
+                    <span className="font-medium">Backup available</span>
+                  </div>
+                  <button
+                    onClick={() => setRollbackTarget(recentRewrites[0].backupRef)}
+                    className="text-xs text-amber-400 hover:text-amber-300 underline transition-colors"
+                  >
+                    Rollback
+                  </button>
+                </div>
+                <div className="mt-1 text-xs text-neutral-500 font-mono">
+                  {recentRewrites.length} recent rewrite(s) — {recentRewrites[0].backupRef}
+                </div>
+              </div>
+            )}
 
             <div className="flex-1 overflow-auto rounded-lg border border-neutral-900">
               <table className="w-full text-left">
@@ -407,25 +435,6 @@ export function CommitExplorerPage() {
               )}
             </div>
 
-            {recentRewrites.length > 0 && (
-              <div className="mt-4 border border-neutral-800 rounded-lg p-3 bg-neutral-900/30">
-                <div className="flex items-center gap-2 text-xs text-neutral-400 mb-2">
-                  <RotateCcw size={12} />
-                  Recent Rewrites
-                </div>
-                {recentRewrites.map((rw) => (
-                  <div key={rw.backupRef} className="flex items-center justify-between text-xs py-1">
-                    <div className="flex items-center gap-2 text-neutral-500">
-                      <Badge variant="mono">{rw.sha.slice(0, 8)}</Badge>
-                      <span className="font-mono text-neutral-500">{rw.backupRef}</span>
-                    </div>
-                    <Button size="sm" variant="ghost" onClick={() => setRollbackTarget(rw.backupRef)}>
-                      <RotateCcw size={12} /> Rollback
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            )}
           </>
         )}
       </div>

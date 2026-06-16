@@ -154,6 +154,11 @@ fn update_references(
 ) -> Result<()> {
     for item in repo.references()?.all()? {
         let reference = item.map_err(map_ref_err)?;
+
+        if reference.name().category() != Some(gix::refs::Category::LocalBranch) {
+            continue;
+        }
+
         let target = reference.target();
         let Some(peeled) = target.try_id() else {
             continue;
@@ -161,7 +166,8 @@ fn update_references(
         let peeled_hex = peeled.to_hex().to_string();
         if let Some(new_id) = sha_map.get(&peeled_hex) {
             let name = reference.name().to_owned();
-            repo.reference(name.as_ref(), *new_id, gix::refs::transaction::PreviousValue::Any, "")?;
+            eprintln!("Updating ref {} from {} to {}", name, peeled_hex, new_id);
+            repo.reference(name, *new_id, gix::refs::transaction::PreviousValue::Any, "")?;
         }
     }
     Ok(())
@@ -284,6 +290,45 @@ mod tests {
     }
 
     #[test]
+    fn test_apply_rewrite_updates_branch_ref() {
+        let (_dir, repo) = create_temp_repo();
+        let s = sig("Author", "author@test.com");
+
+        let a = make_commit(&repo, "First", &s, vec![]);
+        repo.reference("refs/heads/main", a, gix::refs::transaction::PreviousValue::Any, "")
+            .unwrap();
+
+        let plan = RewritePlan {
+            rewrites: vec![
+                CommitRewrite {
+                    old_sha: a.to_string(),
+                    new_sha: "ph_new".to_string(),
+                    author_name: "Author".to_string(),
+                    author_email: "author@test.com".to_string(),
+                    committer_name: "Author".to_string(),
+                    committer_email: "author@test.com".to_string(),
+                    message: "EDITED".to_string(),
+                    parent_shas: vec![],
+                    is_modified: true,
+                },
+            ],
+            total_affected: 1,
+            branches_affected: vec!["main".to_string()],
+            backup_ref: String::new(),
+        };
+
+        let result = apply_rewrite_plan(&repo, &plan).unwrap();
+
+        assert!(result[0].is_modified);
+        assert_ne!(result[0].new_sha, a.to_string());
+        assert_eq!(result[0].message, "EDITED");
+
+        let main_ref = repo.find_reference("refs/heads/main").unwrap();
+        let main_oid = main_ref.target().try_id().unwrap().to_string();
+        assert_eq!(main_oid, result[0].new_sha, "Branch should point to rewritten commit");
+    }
+
+    #[test]
     fn test_create_backup_refs() {
         let (_dir, repo) = create_temp_repo();
         let s = sig("Test", "test@test.com");
@@ -317,6 +362,11 @@ mod tests {
         let new_oid = make_commit(&repo, "New", &s, vec![original_oid]);
         repo.reference("refs/heads/main", new_oid, gix::refs::transaction::PreviousValue::Any, "")
             .unwrap();
+        assert_ne!(
+            repo.find_reference("refs/heads/main").unwrap().target().try_id().unwrap().to_string(),
+            original_oid.to_string(),
+            "Branch should have changed before rollback"
+        );
 
         rollback(&repo, &backup_prefix).unwrap();
 
@@ -325,6 +375,54 @@ mod tests {
             main_ref.target().try_id().unwrap().to_string(),
             original_oid.to_string()
         );
+    }
+
+    #[test]
+    fn test_backup_refs_not_overwritten_by_rewrite() {
+        let (_dir, repo) = create_temp_repo();
+        let s = sig("Test", "test@test.com");
+
+        let original_oid = make_commit(&repo, "Original", &s, vec![]);
+        repo.reference("refs/heads/main", original_oid, gix::refs::transaction::PreviousValue::Any, "")
+            .unwrap();
+
+        let backup_prefix = create_backup_refs(&repo).unwrap();
+        let backup_ref_name = format!("{backup_prefix}/main");
+
+        let backup_oid_before = repo.find_reference(&backup_ref_name)
+            .unwrap().target().try_id().unwrap().to_string();
+        assert_eq!(backup_oid_before, original_oid.to_string());
+
+        let plan = RewritePlan {
+            rewrites: vec![
+                CommitRewrite {
+                    old_sha: original_oid.to_string(),
+                    new_sha: "ph_new".to_string(),
+                    author_name: "Test".to_string(),
+                    author_email: "test@test.com".to_string(),
+                    committer_name: "Test".to_string(),
+                    committer_email: "test@test.com".to_string(),
+                    message: "EDITED".to_string(),
+                    parent_shas: vec![],
+                    is_modified: true,
+                },
+            ],
+            total_affected: 1,
+            branches_affected: vec!["main".to_string()],
+            backup_ref: backup_prefix.clone(),
+        };
+
+        let result = apply_rewrite_plan(&repo, &plan).unwrap();
+
+        let backup_oid_after = repo.find_reference(&backup_ref_name)
+            .unwrap().target().try_id().unwrap().to_string();
+        assert_eq!(backup_oid_after, original_oid.to_string(),
+            "Backup ref should still point to original commit, not be overwritten");
+        
+        let main_oid = repo.find_reference("refs/heads/main")
+            .unwrap().target().try_id().unwrap().to_string();
+        assert_eq!(main_oid, result[0].new_sha,
+            "Branch should point to the rewritten commit");
     }
 
     #[test]
