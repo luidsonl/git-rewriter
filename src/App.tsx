@@ -3,9 +3,7 @@ import { MainLayout } from './components/templates/MainLayout';
 import { DashboardPage } from './pages/DashboardPage';
 import { ContributorsPage } from './pages/ContributorsPage';
 import { CommitExplorerPage } from './pages/CommitExplorerPage';
-
-// Placeholder pages for routing
-const PreviewPage = () => <div className="p-8 text-white">Rewrite Preview</div>;
+import { PreviewPage } from './pages/PreviewPage';
 
 function App() {
   return (

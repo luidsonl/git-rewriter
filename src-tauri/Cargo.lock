@@ -4573,12 +4573,15 @@ dependencies = [
  "anyhow",
  "chrono",
  "gix",
+ "hex",
  "serde",
  "serde_json",
+ "sha1",
  "tauri",
  "tauri-build",
  "tauri-plugin-dialog",
  "tauri-plugin-opener",
+ "tempfile",
 ]
 
 [[package]]

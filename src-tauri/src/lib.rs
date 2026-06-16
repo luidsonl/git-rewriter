@@ -2,7 +2,7 @@ pub mod git_engine;
 pub mod models;
 
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
-use models::{RepoSummary, ScanResult};
+use models::{RepoSummary, ScanResult, RewritePlan, RewriteOperation, CommitRewrite};
 use std::path::PathBuf;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -55,6 +55,48 @@ async fn scan_repository(path: String) -> Result<ScanResult, String> {
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn preview_rewrite(path: String, operations: Vec<RewriteOperation>) -> Result<RewritePlan, String> {
+    let scan_result = git_engine::scanner::scan_repository(&path)
+        .map_err(|e| e.to_string())?;
+    let plan = git_engine::rewriter::compute_rewrite_plan(&scan_result.commits, &operations);
+    Ok(plan)
+}
+
+#[tauri::command]
+async fn apply_rewrite(path: String, operations: Vec<RewriteOperation>) -> Result<Vec<CommitRewrite>, String> {
+    let scan_result = git_engine::scanner::scan_repository(&path)
+        .map_err(|e| e.to_string())?;
+    let plan = git_engine::rewriter::compute_rewrite_plan(&scan_result.commits, &operations);
+
+    let repo = gix::open(&path)
+        .map_err(|e| e.to_string())?;
+
+    let backup_ref = git_engine::applier::create_backup_refs(&repo)
+        .map_err(|e| e.to_string())?;
+
+    eprintln!("Backup created at {}", backup_ref);
+
+    let result = git_engine::applier::apply_rewrite_plan(&repo, &plan)
+        .map_err(|e| e.to_string())?;
+
+    Ok(result)
+}
+
+#[tauri::command]
+async fn create_backup(path: String) -> Result<String, String> {
+    let repo = gix::open(&path).map_err(|e| e.to_string())?;
+    git_engine::applier::create_backup_refs(&repo)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn rollback_rewrite(path: String, backup_ref: String) -> Result<(), String> {
+    let repo = gix::open(&path).map_err(|e| e.to_string())?;
+    git_engine::applier::rollback(&repo, &backup_ref)
+        .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -64,7 +106,11 @@ pub fn run() {
             greet,
             open_settings_window,
             open_repository,
-            scan_repository
+            scan_repository,
+            preview_rewrite,
+            apply_rewrite,
+            create_backup,
+            rollback_rewrite
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -1,5 +1,3 @@
-use std::process::Command;
-
 #[test]
 fn test_gix_open_valid_repo() {
     // We are going to test opening the current repository (git-rewriter)

@@ -33,6 +33,49 @@ export interface ScanResult {
   commits: CommitInfo[];
 }
 
+export interface IdentityRewrite {
+  old_name: string;
+  old_email: string;
+  new_name: string;
+  new_email: string;
+  rewrite_committer: boolean;
+}
+
+export interface MessageEdit {
+  target_sha: string;
+  new_message: string;
+}
+
+export interface AuthorDateEdit {
+  target_sha: string;
+  new_author_date: string;
+  new_commit_date: string;
+}
+
+export type RewriteOperation =
+  | { Identity: IdentityRewrite }
+  | { Message: MessageEdit }
+  | { AuthorDate: AuthorDateEdit };
+
+export interface CommitRewrite {
+  old_sha: string;
+  new_sha: string;
+  author_name: string;
+  author_email: string;
+  committer_name: string;
+  committer_email: string;
+  message: string;
+  parent_shas: string[];
+  is_modified: boolean;
+}
+
+export interface RewritePlan {
+  rewrites: CommitRewrite[];
+  total_affected: number;
+  branches_affected: string[];
+  backup_ref: string;
+}
+
 interface RepositoryState {
   currentRepo: RepoSummary | null;
   scanResult: ScanResult | null;

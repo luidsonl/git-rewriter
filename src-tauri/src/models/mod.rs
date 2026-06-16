@@ -54,3 +54,53 @@ pub struct ScanResult {
     pub contributors: Vec<Contributor>,
     pub commits: Vec<CommitInfo>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct IdentityRewrite {
+    pub old_name: String,
+    pub old_email: String,
+    pub new_name: String,
+    pub new_email: String,
+    pub rewrite_committer: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct MessageEdit {
+    pub target_sha: String,
+    pub new_message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct AuthorDateEdit {
+    pub target_sha: String,
+    pub new_author_date: String,
+    pub new_commit_date: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub enum RewriteOperation {
+    Identity(IdentityRewrite),
+    Message(MessageEdit),
+    AuthorDate(AuthorDateEdit),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CommitRewrite {
+    pub old_sha: String,
+    pub new_sha: String,
+    pub author_name: String,
+    pub author_email: String,
+    pub committer_name: String,
+    pub committer_email: String,
+    pub message: String,
+    pub parent_shas: Vec<String>,
+    pub is_modified: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RewritePlan {
+    pub rewrites: Vec<CommitRewrite>,
+    pub total_affected: usize,
+    pub branches_affected: Vec<String>,
+    pub backup_ref: String,
+}
