@@ -23,21 +23,22 @@ This document outlines the milestones for developing the Git Rewriter.
 - [x] Build Dashboard Page (stats overview — repo name, commits, contributors, branches).
 - [x] Build Contributors Page (sortable table with search and activity bars).
 - [x] Build Commit Explorer Page (searchable list with detail panel and pagination).
-- [ ] Build Rewrite Preview Page.
+- [x] Build Rewrite Preview Page (with identity merge suggestions).
 - [x] Connect frontend pages to Tauri `invoke` commands.
 
 ## Milestone 4: The Rewrite Engine (Core Backend)
-- [ ] Implement the DAG rewriting algorithm in Rust.
-- [ ] Implement branch and tag update logic.
-- [ ] Implement contributor identity rewrite logic.
-- [ ] Implement single commit edit logic.
-- [ ] Implement automatic backup references (`refs/backup/pre-rewrite`).
-- [ ] **Crucial:** Extensive TDD for the rewrite engine to guarantee DAG integrity.
+- [x] Implement the DAG rewriting algorithm in Rust (topological order, cascade).
+- [x] Implement branch and tag update logic (refs updated after rewrite).
+- [x] Implement contributor identity rewrite logic.
+- [x] Implement single commit edit logic (message edit).
+- [x] Implement automatic backup references (`refs/backup/pre-rewrite`).
+- [x] **Crucial:** Extensive TDD for the rewrite engine (12 unit + 4 integration tests).
+- [x] Create Tauri commands: `preview_rewrite`, `apply_rewrite`, `create_backup`, `rollback_rewrite`.
 
 ## Milestone 5: Rewrite UI and Workflows
-- [ ] Build Rewrite Preview Page.
-- [ ] Implement contributor merging flow in UI.
-- [ ] Implement single commit editing flow in UI.
+- [x] Build Rewrite Preview Page (connected to backend).
+- [x] Implement contributor merging flow in UI (select identities → preview → apply).
+- [ ] Implement single commit editing flow in UI (edit in CommitExplorerPage).
 - [ ] Integrate safety dialogs and backup visualization.
 
 ## Milestone 6: Polish and QA
