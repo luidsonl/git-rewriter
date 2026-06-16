@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { useRepositoryStore, CommitInfo, CommitRewrite, RewritePlan } from '../stores/repositoryStore';
 import { useNotificationStore } from '../stores/notificationStore';
-import { Search, ChevronRight, Pencil, X, Loader2 } from 'lucide-react';
+import { Search, ChevronRight, Pencil, X, RotateCcw, Loader2 } from 'lucide-react';
 import { TextInput, Avatar, Badge, PageTitle, Button } from '../components/atoms';
 import { EmptyState, ConfirmDialog } from '../components/molecules';
 
@@ -15,7 +15,14 @@ function formatDate(raw: string): string {
   });
 }
 
-function CommitPanel({ commit, repoPath, onClose }: { commit: CommitInfo; repoPath: string; onClose: () => void }) {
+interface CommitPanelProps {
+  commit: CommitInfo;
+  repoPath: string;
+  onClose: () => void;
+  onApplied: (backupRef: string) => void;
+}
+
+function CommitPanel({ commit, repoPath, onClose, onApplied }: CommitPanelProps) {
   const { addToast } = useNotificationStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editMessage, setEditMessage] = useState(commit.message);
@@ -97,11 +104,14 @@ function CommitPanel({ commit, repoPath, onClose }: { commit: CommitInfo; repoPa
     setIsSaving(true);
     try {
       const operations = buildOperations();
-      await invoke<CommitRewrite[]>('apply_rewrite', {
+      const result = await invoke<CommitRewrite[]>('apply_rewrite', {
         path: repoPath,
         operations,
       });
       addToast(`Commit rewritten: ${commit.sha.slice(0, 8)} → new SHA`, 'success');
+      if (preview?.backup_ref) {
+        onApplied(preview.backup_ref);
+      }
       resetEdit();
     } catch (e) {
       addToast(`Rewrite failed: ${String(e)}`, 'error');
@@ -284,10 +294,14 @@ const PAGE_SIZE = 50;
 
 export function CommitExplorerPage() {
   const { t } = useTranslation();
-  const { currentRepo, scanResult } = useRepositoryStore();
+  const { currentRepo, scanResult, setScanResult } = useRepositoryStore();
+  const { addToast } = useNotificationStore();
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<CommitInfo | null>(null);
   const [page, setPage] = useState(0);
+  const [rollbackTarget, setRollbackTarget] = useState<string | null>(null);
+  const [isRollingBack, setIsRollingBack] = useState(false);
+  const [recentRewrites, setRecentRewrites] = useState<{ backupRef: string; timestamp: number; sha: string }[]>([]);
 
   const filtered = useMemo(() => {
     if (!scanResult) return [];
@@ -303,6 +317,34 @@ export function CommitExplorerPage() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
 
   const handleSearch = (val: string) => { setSearch(val); setPage(0); };
+
+  const handleApplied = (backupRef: string) => {
+    setRecentRewrites((prev) => [
+      { backupRef, timestamp: Date.now(), sha: selected?.sha ?? '' },
+      ...prev,
+    ]);
+  };
+
+  const handleRollback = async () => {
+    if (!currentRepo || !rollbackTarget) return;
+    setIsRollingBack(true);
+    try {
+      await invoke('rollback_rewrite', {
+        path: currentRepo.path,
+        backupRef: rollbackTarget,
+      });
+      addToast('Rollback successful. Branches restored from backup.', 'success');
+      setRecentRewrites((prev) => prev.filter((r) => r.backupRef !== rollbackTarget));
+      setRollbackTarget(null);
+
+      const freshScan = await invoke<any>('scan_repository', { path: currentRepo.path });
+      setScanResult(freshScan);
+    } catch (e) {
+      addToast(`Rollback failed: ${String(e)}`, 'error');
+    } finally {
+      setIsRollingBack(false);
+    }
+  };
 
   return (
     <div className="flex h-full">
@@ -364,15 +406,54 @@ export function CommitExplorerPage() {
                 </div>
               )}
             </div>
+
+            {recentRewrites.length > 0 && (
+              <div className="mt-4 border border-neutral-800 rounded-lg p-3 bg-neutral-900/30">
+                <div className="flex items-center gap-2 text-xs text-neutral-400 mb-2">
+                  <RotateCcw size={12} />
+                  Recent Rewrites
+                </div>
+                {recentRewrites.map((rw) => (
+                  <div key={rw.backupRef} className="flex items-center justify-between text-xs py-1">
+                    <div className="flex items-center gap-2 text-neutral-500">
+                      <Badge variant="mono">{rw.sha.slice(0, 8)}</Badge>
+                      <span className="font-mono text-neutral-500">{rw.backupRef}</span>
+                    </div>
+                    <Button size="sm" variant="ghost" onClick={() => setRollbackTarget(rw.backupRef)}>
+                      <RotateCcw size={12} /> Rollback
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>
+
+      <ConfirmDialog
+        open={rollbackTarget !== null}
+        title="Rollback Rewrite"
+        description="This will restore branches to their state before the commit rewrite. Current changes will be lost."
+        confirmLabel="Rollback"
+        destructive
+        loading={isRollingBack}
+        onConfirm={handleRollback}
+        onCancel={() => setRollbackTarget(null)}
+      >
+        {rollbackTarget && (
+          <div className="bg-neutral-900 border border-neutral-800 rounded-md p-3 text-xs">
+            <span className="text-neutral-500">Restoring from: </span>
+            <span className="text-neutral-300 font-mono">{rollbackTarget}</span>
+          </div>
+        )}
+      </ConfirmDialog>
 
       {selected && (
         <CommitPanel
           commit={selected}
           repoPath={currentRepo?.path ?? ''}
           onClose={() => setSelected(null)}
+          onApplied={handleApplied}
         />
       )}
     </div>

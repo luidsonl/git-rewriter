@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { useRepositoryStore, Contributor, RewritePlan, RewriteOperation, CommitRewrite } from '../stores/repositoryStore';
 import { useNotificationStore } from '../stores/notificationStore';
-import { GitCommit, Users, Shuffle, AlertTriangle, Loader2 } from 'lucide-react';
+import { GitCommit, Users, Shuffle, AlertTriangle, RotateCcw, Loader2 } from 'lucide-react';
 import { Button, Avatar, Badge, PageTitle } from '../components/atoms';
 import { EmptyState, ConfirmDialog } from '../components/molecules';
 
@@ -138,7 +138,9 @@ export function PreviewPage() {
   const [isComputing, setIsComputing] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [showBackupInfo, setShowBackupInfo] = useState(false);
+  const [rollbackTarget, setRollbackTarget] = useState<string | null>(null);
+  const [isRollingBack, setIsRollingBack] = useState(false);
+  const [recentRewrites, setRecentRewrites] = useState<{ backupRef: string; timestamp: number; summary: string }[]>([]);
 
   const suggestions = useMemo(() => {
     if (!scanResult) return [];
@@ -185,6 +187,14 @@ export function PreviewPage() {
       });
       const modified = result.filter((r) => r.is_modified).length;
       addToast(`Rewrite applied: ${modified} commits rewritten`, 'success');
+
+      if (plan?.backup_ref) {
+        setRecentRewrites((prev) => [
+          { backupRef: plan.backup_ref, timestamp: Date.now(), summary: `${modified} commits rewritten` },
+          ...prev,
+        ]);
+      }
+
       setPlan(null);
       setSelectedRewrites(new Set());
 
@@ -194,6 +204,27 @@ export function PreviewPage() {
       addToast(`Rewrite failed: ${String(e)}`, 'error');
     } finally {
       setIsApplying(false);
+    }
+  };
+
+  const handleRollback = async () => {
+    if (!currentRepo || !rollbackTarget) return;
+    setIsRollingBack(true);
+    try {
+      await invoke('rollback_rewrite', {
+        path: currentRepo.path,
+        backupRef: rollbackTarget,
+      });
+      addToast('Rollback successful. Branches restored from backup.', 'success');
+      setRecentRewrites((prev) => prev.filter((r) => r.backupRef !== rollbackTarget));
+      setRollbackTarget(null);
+
+      const freshScan = await invoke<any>('scan_repository', { path: currentRepo.path });
+      setScanResult(freshScan);
+    } catch (e) {
+      addToast(`Rollback failed: ${String(e)}`, 'error');
+    } finally {
+      setIsRollingBack(false);
     }
   };
 
@@ -241,6 +272,46 @@ export function PreviewPage() {
           </div>
         )}
       </ConfirmDialog>
+
+      <ConfirmDialog
+        open={rollbackTarget !== null}
+        title="Rollback Rewrite"
+        description="This will restore branches to their state before the last rewrite. Current changes will be lost."
+        confirmLabel="Rollback"
+        destructive
+        loading={isRollingBack}
+        onConfirm={handleRollback}
+        onCancel={() => setRollbackTarget(null)}
+      >
+        {rollbackTarget && (
+          <div className="bg-neutral-900 border border-neutral-800 rounded-md p-3 text-xs">
+            <span className="text-neutral-500">Restoring from: </span>
+            <span className="text-neutral-300 font-mono">{rollbackTarget}</span>
+          </div>
+        )}
+      </ConfirmDialog>
+
+      {recentRewrites.length > 0 && (
+        <div className="mb-8 border border-neutral-800 rounded-lg p-4 bg-neutral-900/30">
+          <div className="flex items-center gap-2 text-sm text-neutral-400 mb-3">
+            <RotateCcw size={14} />
+            Recent Rewrites
+          </div>
+          <div className="flex flex-col gap-2">
+            {recentRewrites.map((rw) => (
+              <div key={rw.backupRef} className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 text-neutral-500">
+                  <span className="font-mono text-neutral-400">{rw.backupRef}</span>
+                  <span>{rw.summary}</span>
+                </div>
+                <Button size="sm" variant="ghost" onClick={() => setRollbackTarget(rw.backupRef)}>
+                  <RotateCcw size={12} /> Rollback
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {!currentRepo || !scanResult ? (
         <EmptyState
