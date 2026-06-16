@@ -2,7 +2,7 @@ pub mod git_engine;
 pub mod models;
 
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
-use models::{RepoSummary, ScanResult, RewritePlan, RewriteOperation, CommitRewrite};
+use models::{BackupInfo, CommitRewrite, RepoSummary, RewriteOperation, RewritePlan, ScanResult};
 use std::path::PathBuf;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -97,6 +97,20 @@ async fn rollback_rewrite(path: String, backup_ref: String) -> Result<(), String
         .map_err(|e| e.to_string())
 }
 
+#[tauri::command]
+async fn clear_backups(path: String, backup_prefix: String) -> Result<(), String> {
+    let repo = gix::open(&path).map_err(|e| e.to_string())?;
+    git_engine::applier::clear_backups(&repo, &backup_prefix)
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+async fn list_backups(path: String) -> Result<Vec<BackupInfo>, String> {
+    let repo = gix::open(&path).map_err(|e| e.to_string())?;
+    git_engine::applier::list_backups(&repo)
+        .map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -110,7 +124,9 @@ pub fn run() {
             preview_rewrite,
             apply_rewrite,
             create_backup,
-            rollback_rewrite
+            rollback_rewrite,
+            clear_backups,
+            list_backups
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

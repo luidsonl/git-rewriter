@@ -8,7 +8,7 @@
 - **Git Engine:** `gix` (gitoxide) - **NO external git cli processes.**
 
 ## Key Rules
-1. **Safety:** All git operations that mutate history MUST have a backup strategy. Commits are immutable; rewriting means creating new SHAs.
+1. **Safety:** All git operations that mutate history MUST have a backup strategy. Commits are immutable; rewriting means creating new SHAs. Backup refs are stored under `refs/backup/pre-rewrite/<timestamp>/<branch>` and can be cleared after confirming the rewrite.
 2. **TDD:** The Rust backend rewrite engine MUST be built using Test-Driven Development. Use `cargo test`.
 3. **Architecture:** The frontend strictly follows **Atomic Design** (`atoms`, `molecules`, `organisms`, `templates`, `pages`).
 4. **Design:** The UI must be **minimalist and monochromatic**, avoiding excessive animations. Focus on typography, spacing, and neutral colors.

@@ -1,6 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, GitCommit, Search, Settings } from 'lucide-react';
+import { LayoutDashboard, Users, GitCommit, Search, RotateCcw, Settings } from 'lucide-react';
 import { invoke } from '@tauri-apps/api/core';
 
 export function Sidebar() {
@@ -20,6 +20,7 @@ export function Sidebar() {
     { to: '/contributors', icon: <Users size={18} />, label: t('nav.contributors') },
     { to: '/explorer', icon: <GitCommit size={18} />, label: t('nav.explorer') },
     { to: '/preview', icon: <Search size={18} />, label: t('nav.preview') },
+    { to: '/backups', icon: <RotateCcw size={18} />, label: t('nav.backups') },
   ];
 
   return (

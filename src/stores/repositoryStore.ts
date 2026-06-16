@@ -76,6 +76,17 @@ export interface RewritePlan {
   backup_ref: string;
 }
 
+export interface BackupBranch {
+  name: string;
+  sha: string;
+}
+
+export interface BackupInfo {
+  timestamp: string;
+  prefix: string;
+  branches: BackupBranch[];
+}
+
 interface RepositoryState {
   currentRepo: RepoSummary | null;
   scanResult: ScanResult | null;

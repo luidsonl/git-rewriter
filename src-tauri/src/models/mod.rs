@@ -104,3 +104,16 @@ pub struct RewritePlan {
     pub branches_affected: Vec<String>,
     pub backup_ref: String,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupBranch {
+    pub name: String,
+    pub sha: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupInfo {
+    pub timestamp: String,
+    pub prefix: String,
+    pub branches: Vec<BackupBranch>,
+}

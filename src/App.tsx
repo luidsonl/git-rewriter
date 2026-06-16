@@ -4,6 +4,7 @@ import { DashboardPage } from './pages/DashboardPage';
 import { ContributorsPage } from './pages/ContributorsPage';
 import { CommitExplorerPage } from './pages/CommitExplorerPage';
 import { PreviewPage } from './pages/PreviewPage';
+import { BackupsPage } from './pages/BackupsPage';
 
 function App() {
   return (
@@ -14,6 +15,7 @@ function App() {
           <Route path="contributors" element={<ContributorsPage />} />
           <Route path="explorer" element={<CommitExplorerPage />} />
           <Route path="preview" element={<PreviewPage />} />
+          <Route path="backups" element={<BackupsPage />} />
         </Route>
       </Routes>
     </HashRouter>

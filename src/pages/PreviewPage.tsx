@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { useRepositoryStore, Contributor, RewritePlan, RewriteOperation, CommitRewrite } from '../stores/repositoryStore';
 import { useNotificationStore } from '../stores/notificationStore';
-import { GitCommit, Users, Shuffle, AlertTriangle, RotateCcw, Loader2 } from 'lucide-react';
+import { GitCommit, Users, Shuffle, AlertTriangle, RotateCcw, Check, Loader2 } from 'lucide-react';
 import { Button, Avatar, Badge, PageTitle } from '../components/atoms';
 import { EmptyState, ConfirmDialog } from '../components/molecules';
 
@@ -228,6 +228,17 @@ export function PreviewPage() {
     }
   };
 
+  const handleClear = async (backupRef: string) => {
+    if (!currentRepo) return;
+    try {
+      await invoke('clear_backups', { path: currentRepo.path, backupPrefix: backupRef });
+      addToast('Backup cleaned up. Rewrite persisted.', 'success');
+      setRecentRewrites((prev) => prev.filter((r) => r.backupRef !== backupRef));
+    } catch (e) {
+      addToast(`Failed to clear backups: ${String(e)}`, 'error');
+    }
+  };
+
   return (
     <div className="p-8 flex flex-col h-full overflow-y-auto">
       <div className="flex items-center justify-between mb-6">
@@ -298,9 +309,14 @@ export function PreviewPage() {
               <RotateCcw size={14} />
               <span className="font-medium">Backup available</span>
             </div>
-            <Button size="sm" variant="ghost" onClick={() => setRollbackTarget(recentRewrites[0].backupRef)}>
-              <RotateCcw size={12} /> Rollback
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="ghost" onClick={() => handleClear(recentRewrites[0].backupRef)}>
+                <Check size={12} /> Keep
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => setRollbackTarget(recentRewrites[0].backupRef)}>
+                <RotateCcw size={12} /> Rollback
+              </Button>
+            </div>
           </div>
           <div className="mt-1 text-xs text-neutral-500 font-mono">
             {recentRewrites.length} recent rewrite(s) — {recentRewrites[0].backupRef}

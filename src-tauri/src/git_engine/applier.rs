@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use crate::models::{CommitRewrite, RewritePlan};
+use crate::models::{BackupBranch, BackupInfo, CommitRewrite, RewritePlan};
 use anyhow::{Result, Context};
 
 fn parse_oid(sha: &str) -> Result<gix::ObjectId> {
@@ -191,6 +191,63 @@ pub fn rollback(repo: &gix::Repository, backup_prefix: &str) -> Result<()> {
         }
     }
     Ok(())
+}
+
+pub fn clear_backups(repo: &gix::Repository, backup_prefix: &str) -> Result<()> {
+    let git_dir = repo.git_dir().to_path_buf();
+    let backup_path = git_dir.join(backup_prefix);
+
+    if backup_path.exists() {
+        std::fs::remove_dir_all(&backup_path)
+            .with_context(|| format!("Failed to remove backup directory {:?}", backup_path))?;
+    }
+
+    Ok(())
+}
+
+pub fn list_backups(repo: &gix::Repository) -> Result<Vec<BackupInfo>> {
+    let mut backups: Vec<BackupInfo> = Vec::new();
+    let prefix = "refs/backup/pre-rewrite/";
+
+    for item in repo.references()?.all()? {
+        let reference = item.map_err(map_ref_err)?;
+        let full_name = reference.name().to_string();
+
+        if !full_name.starts_with(prefix) {
+            continue;
+        }
+
+        let rest = full_name.strip_prefix(prefix).unwrap_or("");
+        let parts: Vec<&str> = rest.splitn(2, '/').collect();
+        if parts.len() != 2 {
+            continue;
+        }
+
+        let timestamp = parts[0].to_string();
+        let branch_name = parts[1].to_string();
+
+        let sha = reference
+            .target()
+            .try_id()
+            .map(|id| id.to_string())
+            .unwrap_or_default();
+
+        let backup_prefix = format!("{prefix}{timestamp}");
+
+        if let Some(backup) = backups.iter_mut().find(|b: &&mut BackupInfo| b.prefix == backup_prefix) {
+            backup.branches.push(BackupBranch { name: branch_name, sha });
+        } else {
+            backups.push(BackupInfo {
+                timestamp: timestamp.clone(),
+                prefix: backup_prefix,
+                branches: vec![BackupBranch { name: branch_name, sha }],
+            });
+        }
+    }
+
+    backups.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+
+    Ok(backups)
 }
 
 #[cfg(test)]
@@ -423,6 +480,52 @@ mod tests {
             .unwrap().target().try_id().unwrap().to_string();
         assert_eq!(main_oid, result[0].new_sha,
             "Branch should point to the rewritten commit");
+    }
+
+    #[test]
+    fn test_clear_backups() {
+        let (_dir, repo) = create_temp_repo();
+        let s = sig("Test", "test@test.com");
+        let oid = make_commit(&repo, "Initial", &s, vec![]);
+
+        repo.reference("refs/heads/main", oid, gix::refs::transaction::PreviousValue::Any, "")
+            .unwrap();
+
+        let backup_prefix = create_backup_refs(&repo).unwrap();
+        let backup_name = format!("{backup_prefix}/main");
+        assert!(repo.find_reference(&backup_name).is_ok(), "Backup should exist");
+
+        clear_backups(&repo, &backup_prefix).unwrap();
+
+        assert!(repo.find_reference(&backup_name).is_err(), "Backup should be removed after clear");
+        assert!(repo.find_reference("refs/heads/main").is_ok(), "Branch should still exist");
+    }
+
+    #[test]
+    fn test_list_backups_returns_grouped_backups() {
+        let (_dir, repo) = create_temp_repo();
+        let s = sig("Test", "test@test.com");
+
+        let oid1 = make_commit(&repo, "First", &s, vec![]);
+        let oid2 = make_commit(&repo, "Second", &s, vec![oid1]);
+
+        repo.reference("refs/heads/main", oid1, gix::refs::transaction::PreviousValue::Any, "")
+            .unwrap();
+        repo.reference("refs/heads/feature", oid2, gix::refs::transaction::PreviousValue::Any, "")
+            .unwrap();
+
+        let backup_prefix = create_backup_refs(&repo).unwrap();
+
+        let backups = list_backups(&repo).unwrap();
+        assert_eq!(backups.len(), 1, "Should have one backup group");
+
+        let backup = &backups[0];
+        assert_eq!(backup.prefix, backup_prefix);
+        assert_eq!(backup.branches.len(), 2, "Should have two branches backed up");
+
+        let branch_names: Vec<&str> = backup.branches.iter().map(|b| b.name.as_str()).collect();
+        assert!(branch_names.contains(&"main"));
+        assert!(branch_names.contains(&"feature"));
     }
 
     #[test]

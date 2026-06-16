@@ -40,7 +40,7 @@ This document outlines the milestones for developing the Git Rewriter.
 - [x] Implement contributor merging flow in UI (select identities → preview → apply).
 - [x] Implement single commit editing flow in UI (edit message/author/committer in CommitExplorerPage).
 - [x] Integrate safety dialogs (ConfirmDialog) and backup visualization (show backup_ref).
-- [x] Implement rollback UI in PreviewPage and CommitExplorerPage.
+- [x] Implement rollback UI and "Keep rewrite (clear backups)" action in PreviewPage and CommitExplorerPage.
 - [ ] UI polish, loading states, empty states.
 
 ## Milestone 6: Polish and QA

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { useRepositoryStore, CommitInfo, CommitRewrite, RewritePlan } from '../stores/repositoryStore';
 import { useNotificationStore } from '../stores/notificationStore';
-import { Search, ChevronRight, Pencil, X, RotateCcw, Loader2 } from 'lucide-react';
+import { Search, ChevronRight, Pencil, X, RotateCcw, Check, Loader2 } from 'lucide-react';
 import { TextInput, Avatar, Badge, PageTitle, Button } from '../components/atoms';
 import { EmptyState, ConfirmDialog } from '../components/molecules';
 
@@ -328,8 +328,12 @@ export function CommitExplorerPage() {
     setSelected(null);
 
     if (currentRepo) {
-      const freshScan = await invoke<any>('scan_repository', { path: currentRepo.path });
-      setScanResult(freshScan);
+      try {
+        const freshScan = await invoke<any>('scan_repository', { path: currentRepo.path });
+        setScanResult(freshScan);
+      } catch (e) {
+        addToast(`Rescan failed: ${String(e)}`, 'error');
+      }
     }
   };
 
@@ -351,6 +355,17 @@ export function CommitExplorerPage() {
       addToast(`Rollback failed: ${String(e)}`, 'error');
     } finally {
       setIsRollingBack(false);
+    }
+  };
+
+  const handleClear = async (backupRef: string) => {
+    if (!currentRepo) return;
+    try {
+      await invoke('clear_backups', { path: currentRepo.path, backupPrefix: backupRef });
+      addToast('Backup cleaned up. Rewrite persisted.', 'success');
+      setRecentRewrites((prev) => prev.filter((r) => r.backupRef !== backupRef));
+    } catch (e) {
+      addToast(`Failed to clear backups: ${String(e)}`, 'error');
     }
   };
 
@@ -379,6 +394,12 @@ export function CommitExplorerPage() {
                     <RotateCcw size={12} />
                     <span className="font-medium">Backup available</span>
                   </div>
+                  <button
+                    onClick={() => handleClear(recentRewrites[0].backupRef)}
+                    className="text-xs text-neutral-400 hover:text-white transition-colors flex items-center gap-1"
+                  >
+                    <Check size={12} /> Keep
+                  </button>
                   <button
                     onClick={() => setRollbackTarget(recentRewrites[0].backupRef)}
                     className="text-xs text-amber-400 hover:text-amber-300 underline transition-colors"
