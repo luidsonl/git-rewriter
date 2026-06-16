@@ -23,13 +23,13 @@ export function SettingsPage() {
           <label className="text-sm font-medium text-neutral-400">
             {t('settings.language')}
           </label>
-          <select 
+          <select
             value={i18n.language}
             onChange={handleLanguageChange}
-            className="bg-neutral-900 border border-neutral-800 text-white rounded-md px-4 py-2 text-sm focus:outline-none focus:border-neutral-600 transition-colors"
+            className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-md px-4 py-2 text-sm appearance-none focus:outline-none focus:border-neutral-600 transition-colors cursor-pointer"
           >
-            <option value="en">English</option>
-            <option value="pt">Português</option>
+            <option value="en" className="bg-neutral-900 text-white">English</option>
+            <option value="pt" className="bg-neutral-900 text-white">Português</option>
           </select>
         </div>
       </div>
