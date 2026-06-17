@@ -46,6 +46,7 @@ This document outlines the milestones for developing the Git Rewriter.
 - [x] Staged-operation workflow: changes are staged in-store first, then batch-applied from PreviewPage.
 - [x] PreviewPage rewritten as staging review area with staged changes list, unstaging, identity merge suggestions, Apply All.
 - [x] Sync committer checkbox: when checked, committer date/time/TZ and name/email mirror author fields via useEffect.
+- [x] Batch author rewrite: list all unique authors from the commit graph with editable name/email, preview affected commits, stage Identity operations.
 - [ ] UI polish, loading states, empty states.
 
 ## Milestone 6: Polish and QA
