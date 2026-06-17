@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { useRepositoryStore, Contributor, RewritePlan, RewriteOperation, ApplyResult, CommitRewrite } from '../stores/repositoryStore';
 import { useNotificationStore } from '../stores/notificationStore';
-import { GitCommit, Users, Shuffle, AlertTriangle, RotateCcw, Check, Loader2 } from 'lucide-react';
+import { GitCommit, Users, Shuffle, AlertTriangle, Loader2 } from 'lucide-react';
 import { Button, Avatar, Badge, PageTitle } from '../components/atoms';
 import { EmptyState, ConfirmDialog } from '../components/molecules';
 
@@ -138,9 +138,6 @@ export function PreviewPage() {
   const [isComputing, setIsComputing] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-  const [rollbackTarget, setRollbackTarget] = useState<string | null>(null);
-  const [isRollingBack, setIsRollingBack] = useState(false);
-  const [recentRewrites, setRecentRewrites] = useState<{ backupRef: string; timestamp: number; summary: string }[]>([]);
 
   useEffect(() => {
     if (!currentRepo) return;
@@ -199,12 +196,7 @@ export function PreviewPage() {
         operations,
       });
       const modified = result.rewrites.filter((r) => r.is_modified).length;
-      addToast(`Rewrite applied: ${modified} commits rewritten. Backup saved.`, 'success');
-
-      setRecentRewrites((prev) => [
-        { backupRef: result.backup_ref, timestamp: Date.now(), summary: `${modified} commits rewritten` },
-        ...prev,
-      ]);
+      addToast(`Rewrite applied: ${modified} commits rewritten.`, 'success');
 
       setPlan(null);
       setSelectedRewrites(new Set());
@@ -215,38 +207,6 @@ export function PreviewPage() {
       addToast(`Rewrite failed: ${String(e)}`, 'error');
     } finally {
       setIsApplying(false);
-    }
-  };
-
-  const handleRollback = async () => {
-    if (!currentRepo || !rollbackTarget) return;
-    setIsRollingBack(true);
-    try {
-      await invoke('rollback_rewrite', {
-        path: currentRepo.path,
-        backupRef: rollbackTarget,
-      });
-      addToast('Rollback successful. Branches restored from backup.', 'success');
-      setRecentRewrites((prev) => prev.filter((r) => r.backupRef !== rollbackTarget));
-      setRollbackTarget(null);
-
-      const freshScan = await invoke<any>('scan_repository', { path: currentRepo.path });
-      setScanResult(freshScan);
-    } catch (e) {
-      addToast(`Rollback failed: ${String(e)}`, 'error');
-    } finally {
-      setIsRollingBack(false);
-    }
-  };
-
-  const handleClear = async (backupRef: string) => {
-    if (!currentRepo) return;
-    try {
-      await invoke('clear_backups', { path: currentRepo.path, backupPrefix: backupRef });
-      addToast('Backup cleaned up. Rewrite persisted.', 'success');
-      setRecentRewrites((prev) => prev.filter((r) => r.backupRef !== backupRef));
-    } catch (e) {
-      addToast(`Failed to clear backups: ${String(e)}`, 'error');
     }
   };
 
@@ -280,63 +240,13 @@ export function PreviewPage() {
       <ConfirmDialog
         open={showConfirm}
         title="Apply Rewrite"
-        description={`This will rewrite ${plan?.total_affected ?? 0} commit(s) across ${plan?.branches_affected?.length ?? 0} branch(es). A backup will be created before proceeding.`}
+        description={`This will rewrite ${plan?.total_affected ?? 0} commit(s) across ${plan?.branches_affected?.length ?? 0} branch(es). This cannot be undone.`}
         confirmLabel="Apply"
         destructive
         loading={isApplying}
         onConfirm={handleApply}
         onCancel={() => setShowConfirm(false)}
-      >
-        {plan?.backup_ref && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-md p-3 text-xs">
-            <span className="text-neutral-500">Backup ref: </span>
-            <span className="text-neutral-300 font-mono">{plan.backup_ref}</span>
-          </div>
-        )}
-      </ConfirmDialog>
-
-      <ConfirmDialog
-        open={rollbackTarget !== null}
-        title="Rollback Rewrite"
-        description="This will restore branches to their state before the last rewrite. Current changes will be lost."
-        confirmLabel="Rollback"
-        destructive
-        loading={isRollingBack}
-        onConfirm={handleRollback}
-        onCancel={() => setRollbackTarget(null)}
-      >
-        {rollbackTarget && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-md p-3 text-xs">
-            <span className="text-neutral-500">Restoring from: </span>
-            <span className="text-neutral-300 font-mono">{rollbackTarget}</span>
-          </div>
-        )}
-      </ConfirmDialog>
-
-      {recentRewrites.length > 0 && (
-        <div className="mb-8 border border-amber-500/30 bg-amber-500/5 rounded-lg px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm text-amber-300">
-              <RotateCcw size={14} />
-              <span className="font-medium">Backup available</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button size="sm" variant="ghost" onClick={() => handleClear(recentRewrites[0].backupRef)}>
-                <Check size={12} /> Keep
-              </Button>
-              <Button size="sm" variant="ghost" onClick={() => setRollbackTarget(recentRewrites[0].backupRef)}>
-                <RotateCcw size={12} /> Rollback
-              </Button>
-            </div>
-          </div>
-          <div className="mt-1 text-xs text-neutral-500 font-mono">
-            {recentRewrites.length} recent rewrite(s) — {recentRewrites[0].backupRef}
-          </div>
-          <div className="mt-2 text-xs text-neutral-600">
-            {recentRewrites[0].summary}
-          </div>
-        </div>
-      )}
+      />
 
       {!currentRepo || !scanResult ? (
         <EmptyState

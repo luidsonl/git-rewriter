@@ -70,8 +70,10 @@ pub fn compute_rewrite_plan(
         let commit = &commits[i];
         let mut new_author_name = commit.author_name.clone();
         let mut new_author_email = commit.author_email.clone();
+        let mut new_author_date = commit.author_date.clone();
         let mut new_committer_name = commit.committer_name.clone();
         let mut new_committer_email = commit.committer_email.clone();
+        let mut new_commit_date = commit.commit_date.clone();
         let mut new_message = commit.message.clone();
         let mut new_parent_shas = commit.parent_shas.clone();
         let mut is_modified = false;
@@ -121,6 +123,8 @@ pub fn compute_rewrite_plan(
                 }
                 RewriteOperation::AuthorDate(edit) => {
                     if commit.sha == edit.target_sha {
+                        new_author_date = edit.new_author_date.clone();
+                        new_commit_date = edit.new_commit_date.clone();
                         is_modified = true;
                     }
                 }
@@ -143,10 +147,10 @@ pub fn compute_rewrite_plan(
         let new_sha = if is_modified {
             total_affected += 1;
             let content = format!(
-                "{}\n{}\n{}\n{}\n{}\n{}\n{:?}\n{}",
-                new_author_name, new_author_email, new_committer_name,
-                new_committer_email, new_message, commit.author_date,
-                new_parent_shas, commit.commit_date
+                "{}\n{}\n{}\n{}\n{}\n{}\n{}\n{:?}\n",
+                new_author_name, new_author_email, new_author_date,
+                new_committer_name, new_committer_email, new_commit_date,
+                new_message, new_parent_shas,
             );
             compute_new_sha(&commit.sha, &content)
         } else {
@@ -160,8 +164,10 @@ pub fn compute_rewrite_plan(
             new_sha,
             author_name: new_author_name,
             author_email: new_author_email,
+            author_date: new_author_date,
             committer_name: new_committer_name,
             committer_email: new_committer_email,
+            commit_date: new_commit_date,
             message: new_message,
             parent_shas: new_parent_shas,
             is_modified,
@@ -174,7 +180,6 @@ pub fn compute_rewrite_plan(
         rewrites,
         total_affected,
         branches_affected,
-        backup_ref: String::new(),
     }
 }
 

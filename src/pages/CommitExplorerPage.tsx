@@ -3,23 +3,49 @@ import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { useRepositoryStore, CommitInfo, RewritePlan, ApplyResult } from '../stores/repositoryStore';
 import { useNotificationStore } from '../stores/notificationStore';
-import { Search, ChevronRight, Pencil, X, RotateCcw, Check, Loader2 } from 'lucide-react';
+import { Search, ChevronRight, Pencil, X, Loader2 } from 'lucide-react';
 import { TextInput, Avatar, Badge, PageTitle, Button } from '../components/atoms';
 import { EmptyState, ConfirmDialog } from '../components/molecules';
 
+function parseUnixTimestamp(raw: string): number {
+  const parts = raw.split(' ');
+  return parseInt(parts[0], 10);
+}
+
 function formatDate(raw: string): string {
-  const seconds = parseInt(raw, 10);
-  if (isNaN(seconds)) return raw;
-  return new Date(seconds * 1000).toLocaleDateString(undefined, {
+  const secs = parseUnixTimestamp(raw);
+  if (isNaN(secs)) return raw;
+  return new Date(secs * 1000).toLocaleDateString(undefined, {
     year: 'numeric', month: 'short', day: 'numeric',
   });
+}
+
+function toDatetimeLocal(raw: string): string {
+  const secs = parseUnixTimestamp(raw);
+  if (isNaN(secs)) return '';
+  const d = new Date(secs * 1000);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function fromDatetimeLocal(val: string, originalRaw: string): string {
+  if (!val) return originalRaw;
+  const d = new Date(val);
+  const secs = Math.floor(d.getTime() / 1000);
+  const offset = -d.getTimezoneOffset();
+  const sign = offset >= 0 ? '+' : '-';
+  const absOffset = Math.abs(offset);
+  const hours = Math.floor(absOffset / 60);
+  const mins = absOffset % 60;
+  const tz = `${sign}${String(hours).padStart(2, '0')}${String(mins).padStart(2, '0')}`;
+  return `${secs} ${tz}`;
 }
 
 interface CommitPanelProps {
   commit: CommitInfo;
   repoPath: string;
   onClose: () => void;
-  onApplied: (backupRef: string) => void;
+  onApplied: () => void;
 }
 
 function CommitPanel({ commit, repoPath, onClose, onApplied }: CommitPanelProps) {
@@ -28,8 +54,10 @@ function CommitPanel({ commit, repoPath, onClose, onApplied }: CommitPanelProps)
   const [editMessage, setEditMessage] = useState(commit.message);
   const [editAuthorName, setEditAuthorName] = useState(commit.author_name);
   const [editAuthorEmail, setEditAuthorEmail] = useState(commit.author_email);
+  const [editAuthorDate, setEditAuthorDate] = useState(toDatetimeLocal(commit.author_date));
   const [editCommitterName, setEditCommitterName] = useState(commit.committer_name);
   const [editCommitterEmail, setEditCommitterEmail] = useState(commit.committer_email);
+  const [editCommitDate, setEditCommitDate] = useState(toDatetimeLocal(commit.commit_date));
   const [preview, setPreview] = useState<RewritePlan | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -39,14 +67,18 @@ function CommitPanel({ commit, repoPath, onClose, onApplied }: CommitPanelProps)
     editAuthorName !== commit.author_name ||
     editAuthorEmail !== commit.author_email ||
     editCommitterName !== commit.committer_name ||
-    editCommitterEmail !== commit.committer_email;
+    editCommitterEmail !== commit.committer_email ||
+    editAuthorDate !== toDatetimeLocal(commit.author_date) ||
+    editCommitDate !== toDatetimeLocal(commit.commit_date);
 
   const resetEdit = () => {
     setEditMessage(commit.message);
     setEditAuthorName(commit.author_name);
     setEditAuthorEmail(commit.author_email);
+    setEditAuthorDate(toDatetimeLocal(commit.author_date));
     setEditCommitterName(commit.committer_name);
     setEditCommitterEmail(commit.committer_email);
+    setEditCommitDate(toDatetimeLocal(commit.commit_date));
     setPreview(null);
     setShowConfirm(false);
     setIsEditing(false);
@@ -72,6 +104,16 @@ function CommitPanel({ commit, repoPath, onClose, onApplied }: CommitPanelProps)
           new_name: editAuthorName,
           new_email: editAuthorEmail,
           rewrite_committer: editCommitterName !== commit.committer_name || editCommitterEmail !== commit.committer_email,
+        },
+      });
+    }
+
+    if (editAuthorDate !== toDatetimeLocal(commit.author_date) || editCommitDate !== toDatetimeLocal(commit.commit_date)) {
+      operations.push({
+        AuthorDate: {
+          target_sha: commit.sha,
+          new_author_date: fromDatetimeLocal(editAuthorDate, commit.author_date),
+          new_commit_date: fromDatetimeLocal(editCommitDate, commit.commit_date),
         },
       });
     }
@@ -110,7 +152,7 @@ function CommitPanel({ commit, repoPath, onClose, onApplied }: CommitPanelProps)
       });
       const newSha = result.rewrites.find((r) => r.is_modified)?.new_sha ?? result.rewrites[0]?.new_sha;
       addToast(`Commit rewritten: ${commit.sha.slice(0, 8)} → ${newSha?.slice(0, 8) ?? '?'}`, 'success');
-      onApplied(result.backup_ref);
+      onApplied();
       resetEdit();
     } catch (e) {
       addToast(`Rewrite failed: ${String(e)}`, 'error');
@@ -137,11 +179,6 @@ function CommitPanel({ commit, repoPath, onClose, onApplied }: CommitPanelProps)
         <div className="border border-neutral-800 rounded-md p-3 bg-neutral-900/50">
           <p className="text-xs font-medium text-neutral-300 mb-1">Rewrite Preview</p>
           <p className="text-xs text-neutral-500 mb-2">{preview.total_affected} commit(s) will change</p>
-          {preview.backup_ref && (
-            <p className="text-xs text-neutral-600 mb-2">
-              Backup: <span className="font-mono text-neutral-500">{preview.backup_ref}</span>
-            </p>
-          )}
           <div className="flex gap-2">
             <Button size="sm" variant="primary" onClick={() => setShowConfirm(true)} disabled={isSaving}>
               {isSaving ? <Loader2 size={12} className="animate-spin" /> : null}
@@ -155,20 +192,13 @@ function CommitPanel({ commit, repoPath, onClose, onApplied }: CommitPanelProps)
       <ConfirmDialog
         open={showConfirm}
         title="Apply Commit Rewrite"
-        description={`This will rewrite commit ${commit.sha.slice(0, 12)} with your changes. A backup ref will be saved.`}
+        description={`This will rewrite commit ${commit.sha.slice(0, 12)} with your changes. This cannot be undone.`}
         confirmLabel="Apply"
         destructive
         loading={isSaving}
         onConfirm={handleApply}
         onCancel={() => setShowConfirm(false)}
-      >
-        {preview?.backup_ref && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-md p-3 text-xs">
-            <span className="text-neutral-500">Backup ref: </span>
-            <span className="text-neutral-300 font-mono">{preview.backup_ref}</span>
-          </div>
-        )}
-      </ConfirmDialog>
+      />
 
       <div>
         <p className="text-xs text-neutral-500 mb-1">SHA</p>
@@ -195,6 +225,15 @@ function CommitPanel({ commit, repoPath, onClose, onApplied }: CommitPanelProps)
           <div className="flex flex-col gap-2">
             <TextInput value={editAuthorName} onChange={(e) => setEditAuthorName(e.target.value)} placeholder="Author name" />
             <TextInput value={editAuthorEmail} onChange={(e) => setEditAuthorEmail(e.target.value)} placeholder="Author email" />
+            <div>
+              <p className="text-xs text-neutral-500 mb-1">Date</p>
+              <input
+                type="datetime-local"
+                value={editAuthorDate}
+                onChange={(e) => setEditAuthorDate(e.target.value)}
+                className="w-full bg-neutral-900 border border-neutral-800 rounded-md p-2 text-sm text-white focus:outline-none focus:border-neutral-600 transition-colors"
+              />
+            </div>
           </div>
         ) : (
           <>
@@ -298,9 +337,6 @@ export function CommitExplorerPage() {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<CommitInfo | null>(null);
   const [page, setPage] = useState(0);
-  const [rollbackTarget, setRollbackTarget] = useState<string | null>(null);
-  const [isRollingBack, setIsRollingBack] = useState(false);
-  const [recentRewrites, setRecentRewrites] = useState<{ backupRef: string; timestamp: number; sha: string }[]>([]);
 
   const filtered = useMemo(() => {
     if (!scanResult) return [];
@@ -317,13 +353,9 @@ export function CommitExplorerPage() {
 
   const handleSearch = (val: string) => { setSearch(val); setPage(0); };
 
-  const handleApplied = async (backupRef: string) => {
-    setRecentRewrites((prev) => [
-      { backupRef, timestamp: Date.now(), sha: selected?.sha ?? '' },
-      ...prev,
-    ]);
-    addToast('Commit rewritten. You can rollback using the "Recent Rewrites" section.', 'success');
+  const handleApplied = async () => {
     setSelected(null);
+    addToast('Commit rewritten successfully.', 'success');
 
     if (currentRepo) {
       try {
@@ -332,38 +364,6 @@ export function CommitExplorerPage() {
       } catch (e) {
         addToast(`Rescan failed: ${String(e)}`, 'error');
       }
-    }
-  };
-
-  const handleRollback = async () => {
-    if (!currentRepo || !rollbackTarget) return;
-    setIsRollingBack(true);
-    try {
-      await invoke('rollback_rewrite', {
-        path: currentRepo.path,
-        backupRef: rollbackTarget,
-      });
-      addToast('Rollback successful. Branches restored from backup.', 'success');
-      setRecentRewrites((prev) => prev.filter((r) => r.backupRef !== rollbackTarget));
-      setRollbackTarget(null);
-
-      const freshScan = await invoke<any>('scan_repository', { path: currentRepo.path });
-      setScanResult(freshScan);
-    } catch (e) {
-      addToast(`Rollback failed: ${String(e)}`, 'error');
-    } finally {
-      setIsRollingBack(false);
-    }
-  };
-
-  const handleClear = async (backupRef: string) => {
-    if (!currentRepo) return;
-    try {
-      await invoke('clear_backups', { path: currentRepo.path, backupPrefix: backupRef });
-      addToast('Backup cleaned up. Rewrite persisted.', 'success');
-      setRecentRewrites((prev) => prev.filter((r) => r.backupRef !== backupRef));
-    } catch (e) {
-      addToast(`Failed to clear backups: ${String(e)}`, 'error');
     }
   };
 
@@ -384,32 +384,6 @@ export function CommitExplorerPage() {
                 onChange={(e) => handleSearch(e.target.value)}
               />
             </div>
-
-            {recentRewrites.length > 0 && (
-              <div className="mb-4 border border-amber-500/30 bg-amber-500/5 rounded-lg px-4 py-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-xs text-amber-300">
-                    <RotateCcw size={12} />
-                    <span className="font-medium">Backup available</span>
-                  </div>
-                  <button
-                    onClick={() => handleClear(recentRewrites[0].backupRef)}
-                    className="text-xs text-neutral-400 hover:text-white transition-colors flex items-center gap-1"
-                  >
-                    <Check size={12} /> Keep
-                  </button>
-                  <button
-                    onClick={() => setRollbackTarget(recentRewrites[0].backupRef)}
-                    className="text-xs text-amber-400 hover:text-amber-300 underline transition-colors"
-                  >
-                    Rollback
-                  </button>
-                </div>
-                <div className="mt-1 text-xs text-neutral-500 font-mono">
-                  {recentRewrites.length} recent rewrite(s) — {recentRewrites[0].backupRef}
-                </div>
-              </div>
-            )}
 
             <div className="flex-1 overflow-auto rounded-lg border border-neutral-900">
               <table className="w-full text-left">
@@ -457,24 +431,6 @@ export function CommitExplorerPage() {
           </>
         )}
       </div>
-
-      <ConfirmDialog
-        open={rollbackTarget !== null}
-        title="Rollback Rewrite"
-        description="This will restore branches to their state before the commit rewrite. Current changes will be lost."
-        confirmLabel="Rollback"
-        destructive
-        loading={isRollingBack}
-        onConfirm={handleRollback}
-        onCancel={() => setRollbackTarget(null)}
-      >
-        {rollbackTarget && (
-          <div className="bg-neutral-900 border border-neutral-800 rounded-md p-3 text-xs">
-            <span className="text-neutral-500">Restoring from: </span>
-            <span className="text-neutral-300 font-mono">{rollbackTarget}</span>
-          </div>
-        )}
-      </ConfirmDialog>
 
       {selected && (
         <CommitPanel

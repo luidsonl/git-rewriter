@@ -28,15 +28,12 @@ fn parse_time(s: &str) -> gix::date::Time {
 fn build_signature(
     name: &str,
     email: &str,
-    orig_sig: Option<gix::actor::SignatureRef<'_>>,
+    date_str: &str,
 ) -> gix::actor::Signature {
-    let time = orig_sig
-        .map(|s| parse_time(s.time))
-        .unwrap_or_else(gix::date::Time::now_local_or_utc);
     gix::actor::Signature {
         name: name.into(),
         email: email.into(),
-        time,
+        time: parse_time(date_str),
     }
 }
 
@@ -90,13 +87,13 @@ pub fn apply_rewrite_plan(
         let author_sig = build_signature(
             &rewrite.author_name,
             &rewrite.author_email,
-            orig_data.author().ok(),
+            &rewrite.author_date,
         );
 
         let committer_sig = build_signature(
             &rewrite.committer_name,
             &rewrite.committer_email,
-            orig_data.committer().ok(),
+            &rewrite.commit_date,
         );
 
         let parent_ids: Vec<gix::ObjectId> = orig_data
@@ -135,8 +132,10 @@ pub fn apply_rewrite_plan(
             new_sha,
             author_name: rewrite.author_name.clone(),
             author_email: rewrite.author_email.clone(),
+            author_date: rewrite.author_date.clone(),
             committer_name: rewrite.committer_name.clone(),
             committer_email: rewrite.committer_email.clone(),
+            commit_date: rewrite.commit_date.clone(),
             message: rewrite.message.clone(),
             parent_shas: updated_parents,
             is_modified: true,
@@ -306,8 +305,10 @@ mod tests {
                     new_sha: a.to_string(),
                     author_name: "Test User".to_string(),
                     author_email: "test@test.com".to_string(),
+                    author_date: String::new(),
                     committer_name: "Test User".to_string(),
                     committer_email: "test@test.com".to_string(),
+                    commit_date: String::new(),
                     message: "First".to_string(),
                     parent_shas: vec![],
                     is_modified: false,
@@ -317,8 +318,10 @@ mod tests {
                     new_sha: "placeholder".to_string(),
                     author_name: "Rewritten".to_string(),
                     author_email: "rewritten@test.com".to_string(),
+                    author_date: String::new(),
                     committer_name: "Rewritten".to_string(),
                     committer_email: "rewritten@test.com".to_string(),
+                    commit_date: String::new(),
                     message: "EDITED".to_string(),
                     parent_shas: vec![a.to_string()],
                     is_modified: true,
@@ -326,7 +329,6 @@ mod tests {
             ],
             total_affected: 1,
             branches_affected: vec![],
-            backup_ref: String::new(),
         };
 
         let result = apply_rewrite_plan(&repo, &plan).unwrap();
@@ -362,8 +364,10 @@ mod tests {
                     new_sha: "ph_new".to_string(),
                     author_name: "Author".to_string(),
                     author_email: "author@test.com".to_string(),
+                    author_date: String::new(),
                     committer_name: "Author".to_string(),
                     committer_email: "author@test.com".to_string(),
+                    commit_date: String::new(),
                     message: "EDITED".to_string(),
                     parent_shas: vec![],
                     is_modified: true,
@@ -371,7 +375,6 @@ mod tests {
             ],
             total_affected: 1,
             branches_affected: vec!["main".to_string()],
-            backup_ref: String::new(),
         };
 
         let result = apply_rewrite_plan(&repo, &plan).unwrap();
@@ -457,8 +460,10 @@ mod tests {
                     new_sha: "ph_new".to_string(),
                     author_name: "Test".to_string(),
                     author_email: "test@test.com".to_string(),
+                    author_date: String::new(),
                     committer_name: "Test".to_string(),
                     committer_email: "test@test.com".to_string(),
+                    commit_date: String::new(),
                     message: "EDITED".to_string(),
                     parent_shas: vec![],
                     is_modified: true,
@@ -466,7 +471,6 @@ mod tests {
             ],
             total_affected: 1,
             branches_affected: vec!["main".to_string()],
-            backup_ref: backup_prefix.clone(),
         };
 
         let result = apply_rewrite_plan(&repo, &plan).unwrap();
@@ -587,8 +591,10 @@ mod tests {
                     new_sha: "ph_a".to_string(),
                     author_name: "Test".to_string(),
                     author_email: "test@test.com".to_string(),
+                    author_date: String::new(),
                     committer_name: "Test".to_string(),
                     committer_email: "test@test.com".to_string(),
+                    commit_date: String::new(),
                     message: "A EDITED".to_string(),
                     parent_shas: vec![],
                     is_modified: true,
@@ -598,8 +604,10 @@ mod tests {
                     new_sha: "ph_b".to_string(),
                     author_name: "Test".to_string(),
                     author_email: "test@test.com".to_string(),
+                    author_date: String::new(),
                     committer_name: "Test".to_string(),
                     committer_email: "test@test.com".to_string(),
+                    commit_date: String::new(),
                     message: "B".to_string(),
                     parent_shas: vec!["ph_a".to_string()],
                     is_modified: true,
@@ -609,8 +617,10 @@ mod tests {
                     new_sha: "ph_c".to_string(),
                     author_name: "Test".to_string(),
                     author_email: "test@test.com".to_string(),
+                    author_date: String::new(),
                     committer_name: "Test".to_string(),
                     committer_email: "test@test.com".to_string(),
+                    commit_date: String::new(),
                     message: "C".to_string(),
                     parent_shas: vec!["ph_b".to_string()],
                     is_modified: true,
@@ -618,7 +628,6 @@ mod tests {
             ],
             total_affected: 3,
             branches_affected: vec![],
-            backup_ref: String::new(),
         };
 
         let result = apply_rewrite_plan(&repo, &plan).unwrap();

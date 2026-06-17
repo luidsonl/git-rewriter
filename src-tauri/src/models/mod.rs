@@ -90,8 +90,10 @@ pub struct CommitRewrite {
     pub new_sha: String,
     pub author_name: String,
     pub author_email: String,
+    pub author_date: String,
     pub committer_name: String,
     pub committer_email: String,
+    pub commit_date: String,
     pub message: String,
     pub parent_shas: Vec<String>,
     pub is_modified: bool,
@@ -102,13 +104,11 @@ pub struct RewritePlan {
     pub rewrites: Vec<CommitRewrite>,
     pub total_affected: usize,
     pub branches_affected: Vec<String>,
-    pub backup_ref: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ApplyResult {
     pub rewrites: Vec<CommitRewrite>,
-    pub backup_ref: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

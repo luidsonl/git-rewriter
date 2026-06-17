@@ -62,8 +62,10 @@ export interface CommitRewrite {
   new_sha: string;
   author_name: string;
   author_email: string;
+  author_date: string;
   committer_name: string;
   committer_email: string;
+  commit_date: string;
   message: string;
   parent_shas: string[];
   is_modified: boolean;
@@ -73,39 +75,55 @@ export interface RewritePlan {
   rewrites: CommitRewrite[];
   total_affected: number;
   branches_affected: string[];
-  backup_ref: string;
 }
 
 export interface ApplyResult {
   rewrites: CommitRewrite[];
-  backup_ref: string;
 }
 
-export interface BackupBranch {
-  name: string;
-  sha: string;
+const RECENT_REPOS_KEY = 'git-rewriter:recentRepos';
+
+function loadRecentRepos(): RepoSummary[] {
+  try {
+    const raw = localStorage.getItem(RECENT_REPOS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
 }
 
-export interface BackupInfo {
-  timestamp: string;
-  prefix: string;
-  branches: BackupBranch[];
+function saveRecentRepos(repos: RepoSummary[]) {
+  localStorage.setItem(RECENT_REPOS_KEY, JSON.stringify(repos));
 }
 
 interface RepositoryState {
   currentRepo: RepoSummary | null;
   scanResult: ScanResult | null;
   isScanning: boolean;
+  recentRepos: RepoSummary[];
   setRepo: (repo: RepoSummary | null) => void;
   setScanResult: (result: ScanResult | null) => void;
   setIsScanning: (scanning: boolean) => void;
+  addRecentRepo: (repo: RepoSummary) => void;
+  clearRecentRepos: () => void;
 }
 
 export const useRepositoryStore = create<RepositoryState>((set) => ({
   currentRepo: null,
   scanResult: null,
   isScanning: false,
+  recentRepos: loadRecentRepos(),
   setRepo: (repo) => set({ currentRepo: repo, scanResult: null }),
   setScanResult: (result) => set({ scanResult: result }),
   setIsScanning: (isScanning) => set({ isScanning }),
+  addRecentRepo: (repo) => set((state) => {
+    const filtered = state.recentRepos.filter((r) => r.path !== repo.path);
+    const updated = [repo, ...filtered].slice(0, 10);
+    saveRecentRepos(updated);
+    return { recentRepos: updated };
+  }),
+  clearRecentRepos: () => {
+    saveRecentRepos([]);
+    return { recentRepos: [] };
+  },
 }));

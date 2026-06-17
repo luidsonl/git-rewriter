@@ -12,13 +12,14 @@ import { StatCard, ScanningIndicator, RepoHeader } from '../components/molecules
 export function DashboardPage() {
   const { t } = useTranslation();
   const { addToast } = useNotificationStore();
-  const { currentRepo, scanResult, isScanning, setRepo, setScanResult, setIsScanning } = useRepositoryStore();
+  const { currentRepo, scanResult, isScanning, setRepo, setScanResult, setIsScanning, addRecentRepo } = useRepositoryStore();
   const [isDragging, setIsDragging] = useState(false);
 
   const handleOpenRepo = async (path: string) => {
     try {
       const repo = await invoke<any>('open_repository', { path });
       setRepo(repo);
+      addRecentRepo(repo);
       addToast(`${repo.name} opened`, 'success');
       scanRepo(path);
     } catch (e) {

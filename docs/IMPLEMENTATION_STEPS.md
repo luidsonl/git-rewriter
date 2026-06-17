@@ -38,13 +38,20 @@ This document outlines the milestones for developing the Git Rewriter.
 ## Milestone 5: Rewrite UI and Workflows
 - [x] Build Rewrite Preview Page (connected to backend).
 - [x] Implement contributor merging flow in UI (select identities → preview → apply).
-- [x] Implement single commit editing flow in UI (edit message/author/committer in CommitExplorerPage).
-- [x] Integrate safety dialogs (ConfirmDialog) and backup visualization (show backup_ref).
-- [x] Implement rollback UI and "Keep rewrite (clear backups)" action in PreviewPage and CommitExplorerPage.
-- [x] Build dedicated BackupsPage with `list_backups` Rust command (scan refs/backup/pre-rewrite/).
+- [x] Implement single commit editing flow in UI (edit message/author/committer/dates in CommitExplorerPage).
+- [x] Integrate safety dialogs (ConfirmDialog) showing what will change before applying.
+- [x] Implement individual commit date editing with chronological validation (parent dates ≤ child dates).
 - [ ] UI polish, loading states, empty states.
 
 ## Milestone 6: Polish and QA
 - [ ] Manual QA based on scenarios in PROJECT_SPEC.md.
 - [ ] UI Polish (animations, loading states, empty states).
 - [ ] CI/CD setup for automated linting and testing.
+
+## Milestone 7: Repository Management & Navigation
+- [x] Add hamburger menu in top bar for repository management.
+- [x] Open repository from hamburger menu (file picker).
+- [x] Refresh current repository scan.
+- [x] Recent repositories list with localStorage persistence.
+- [x] Clear recent repositories list.
+- [x] Remove backup infrastructure (backups are no longer created).

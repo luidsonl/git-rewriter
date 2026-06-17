@@ -72,15 +72,10 @@ async fn apply_rewrite(path: String, operations: Vec<RewriteOperation>) -> Resul
     let repo = gix::open(&path)
         .map_err(|e| e.to_string())?;
 
-    let backup_ref = git_engine::applier::create_backup_refs(&repo)
-        .map_err(|e| e.to_string())?;
-
-    eprintln!("Backup created at {}", backup_ref);
-
     let rewrites = git_engine::applier::apply_rewrite_plan(&repo, &plan)
         .map_err(|e| e.to_string())?;
 
-    Ok(ApplyResult { rewrites, backup_ref })
+    Ok(ApplyResult { rewrites })
 }
 
 #[tauri::command]
