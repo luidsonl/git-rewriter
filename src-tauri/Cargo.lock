@@ -1378,6 +1378,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "git-rewriter"
+version = "1.0.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "gix",
+ "hex",
+ "serde",
+ "serde_json",
+ "sha1",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-dialog",
+ "tauri-plugin-opener",
+ "tempfile",
+]
+
+[[package]]
 name = "gix"
 version = "0.84.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4564,24 +4582,6 @@ dependencies = [
  "webview2-com",
  "window-vibrancy",
  "windows",
-]
-
-[[package]]
-name = "tauri-app"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "gix",
- "hex",
- "serde",
- "serde_json",
- "sha1",
- "tauri",
- "tauri-build",
- "tauri-plugin-dialog",
- "tauri-plugin-opener",
- "tempfile",
 ]
 
 [[package]]
