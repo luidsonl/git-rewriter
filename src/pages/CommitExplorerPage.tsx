@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
-import { useRepositoryStore, CommitInfo, CommitRewrite, RewritePlan } from '../stores/repositoryStore';
+import { useRepositoryStore, CommitInfo, RewritePlan, ApplyResult } from '../stores/repositoryStore';
 import { useNotificationStore } from '../stores/notificationStore';
 import { Search, ChevronRight, Pencil, X, RotateCcw, Check, Loader2 } from 'lucide-react';
 import { TextInput, Avatar, Badge, PageTitle, Button } from '../components/atoms';
@@ -104,15 +104,13 @@ function CommitPanel({ commit, repoPath, onClose, onApplied }: CommitPanelProps)
     setIsSaving(true);
     try {
       const operations = buildOperations();
-      const result = await invoke<CommitRewrite[]>('apply_rewrite', {
+      const result = await invoke<ApplyResult>('apply_rewrite', {
         path: repoPath,
         operations,
       });
-      const newSha = result.find((r) => r.is_modified)?.new_sha ?? result[0]?.new_sha;
+      const newSha = result.rewrites.find((r) => r.is_modified)?.new_sha ?? result.rewrites[0]?.new_sha;
       addToast(`Commit rewritten: ${commit.sha.slice(0, 8)} → ${newSha?.slice(0, 8) ?? '?'}`, 'success');
-      if (preview?.backup_ref) {
-        onApplied(preview.backup_ref);
-      }
+      onApplied(result.backup_ref);
       resetEdit();
     } catch (e) {
       addToast(`Rewrite failed: ${String(e)}`, 'error');

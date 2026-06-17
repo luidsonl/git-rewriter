@@ -54,7 +54,7 @@ function BackupCard({
 }
 
 export function BackupsPage() {
-  const { currentRepo } = useRepositoryStore();
+  const { currentRepo, setScanResult } = useRepositoryStore();
   const { addToast } = useNotificationStore();
   const [backups, setBackups] = useState<BackupInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -85,6 +85,8 @@ export function BackupsPage() {
       await invoke('rollback_rewrite', { path: currentRepo.path, backupRef: actionTarget.prefix });
       addToast('Rollback successful. Branches restored from backup.', 'success');
       setActionTarget(null);
+      const freshScan = await invoke<any>('scan_repository', { path: currentRepo.path });
+      setScanResult(freshScan);
       fetchBackups();
     } catch (e) {
       addToast(`Rollback failed: ${String(e)}`, 'error');

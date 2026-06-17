@@ -106,6 +106,12 @@ pub struct RewritePlan {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ApplyResult {
+    pub rewrites: Vec<CommitRewrite>,
+    pub backup_ref: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BackupBranch {
     pub name: String,
     pub sha: String,

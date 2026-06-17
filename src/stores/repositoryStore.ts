@@ -76,6 +76,11 @@ export interface RewritePlan {
   backup_ref: string;
 }
 
+export interface ApplyResult {
+  rewrites: CommitRewrite[];
+  backup_ref: string;
+}
+
 export interface BackupBranch {
   name: string;
   sha: string;

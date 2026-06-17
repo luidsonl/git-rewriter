@@ -30,15 +30,44 @@ fn apply_identity(
     else { value.to_string() }
 }
 
+fn topological_depth(commits: &[CommitInfo]) -> HashMap<String, usize> {
+    let mut depth: HashMap<String, usize> = HashMap::new();
+    for c in commits {
+        depth.entry(c.sha.clone()).or_insert(0);
+    }
+    loop {
+        let mut changed = false;
+        for c in commits {
+            let parent_max = c.parent_shas.iter()
+                .filter_map(|p| depth.get(p))
+                .max()
+                .copied()
+                .unwrap_or(0);
+            let next = parent_max + 1;
+            if depth.get(&c.sha) != Some(&next) {
+                depth.insert(c.sha.clone(), next);
+                changed = true;
+            }
+        }
+        if !changed { break; }
+    }
+    depth
+}
+
 pub fn compute_rewrite_plan(
     commits: &[CommitInfo],
     operations: &[RewriteOperation],
 ) -> RewritePlan {
+    let depth = topological_depth(commits);
+    let mut order: Vec<usize> = (0..commits.len()).collect();
+    order.sort_by_key(|&i| depth.get(&commits[i].sha).copied().unwrap_or(0));
+
     let mut sha_map: HashMap<String, String> = HashMap::new();
     let mut rewrites: Vec<CommitRewrite> = Vec::new();
     let mut total_affected = 0;
 
-    for commit in commits {
+    for &i in &order {
+        let commit = &commits[i];
         let mut new_author_name = commit.author_name.clone();
         let mut new_author_email = commit.author_email.clone();
         let mut new_committer_name = commit.committer_name.clone();
@@ -357,6 +386,35 @@ mod tests {
         assert!(!plan.rewrites[0].is_modified, "Root should not change");
         assert!(plan.rewrites[1].is_modified, "Target should change");
         assert_eq!(plan.rewrites[1].message, "EDITED");
+    }
+
+    #[test]
+    fn test_cascade_works_with_newest_first_order() {
+        // Scanner returns commits newest-first. This test verifies that
+        // compute_rewrite_plan correctly cascades parent changes even
+        // when children appear before parents in the input list.
+        let commits = vec![
+            make_commit("bbb", "Bob", "b@t.com", "Bob", "b@t.com", "second", vec!["aaa"]),
+            make_commit("aaa", "Alice", "a@old.com", "Alice", "a@old.com", "first", vec![]),
+        ];
+
+        let operations = vec![
+            RewriteOperation::Identity(IdentityRewrite {
+                old_name: "Alice".to_string(),
+                old_email: "a@old.com".to_string(),
+                new_name: "Alice New".to_string(),
+                new_email: "a@new.com".to_string(),
+                rewrite_committer: true,
+            }),
+        ];
+
+        let plan = compute_rewrite_plan(&commits, &operations);
+
+        assert_eq!(plan.total_affected, 2, "Both commits should be affected (root + child)");
+        assert!(plan.rewrites[0].is_modified, "Root should be modified");
+        assert!(plan.rewrites[1].is_modified, "Child should be modified (parent changed)");
+        assert_eq!(plan.rewrites[1].parent_shas[0], plan.rewrites[0].new_sha,
+            "Child's parent should point to root's new SHA");
     }
 
     #[test]

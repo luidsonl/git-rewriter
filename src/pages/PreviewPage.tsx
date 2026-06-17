@@ -1,7 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
-import { useRepositoryStore, Contributor, RewritePlan, RewriteOperation, CommitRewrite } from '../stores/repositoryStore';
+import { useRepositoryStore, Contributor, RewritePlan, RewriteOperation, ApplyResult, CommitRewrite } from '../stores/repositoryStore';
 import { useNotificationStore } from '../stores/notificationStore';
 import { GitCommit, Users, Shuffle, AlertTriangle, RotateCcw, Check, Loader2 } from 'lucide-react';
 import { Button, Avatar, Badge, PageTitle } from '../components/atoms';
@@ -142,6 +142,19 @@ export function PreviewPage() {
   const [isRollingBack, setIsRollingBack] = useState(false);
   const [recentRewrites, setRecentRewrites] = useState<{ backupRef: string; timestamp: number; summary: string }[]>([]);
 
+  useEffect(() => {
+    if (!currentRepo) return;
+    const refresh = async () => {
+      try {
+        const fresh = await invoke<any>('scan_repository', { path: currentRepo.path });
+        setScanResult(fresh);
+      } catch {
+        // store already has data, silently ignore
+      }
+    };
+    refresh();
+  }, [currentRepo, setScanResult]);
+
   const suggestions = useMemo(() => {
     if (!scanResult) return [];
     return getMergeSuggestions(scanResult.contributors);
@@ -181,19 +194,17 @@ export function PreviewPage() {
     setIsApplying(true);
     try {
       const operations = toOperations(suggestions, selectedRewrites);
-      const result = await invoke<CommitRewrite[]>('apply_rewrite', {
+      const result = await invoke<ApplyResult>('apply_rewrite', {
         path: currentRepo.path,
         operations,
       });
-      const modified = result.filter((r) => r.is_modified).length;
+      const modified = result.rewrites.filter((r) => r.is_modified).length;
       addToast(`Rewrite applied: ${modified} commits rewritten. Backup saved.`, 'success');
 
-      if (plan?.backup_ref) {
-        setRecentRewrites((prev) => [
-          { backupRef: plan.backup_ref, timestamp: Date.now(), summary: `${modified} commits rewritten` },
-          ...prev,
-        ]);
-      }
+      setRecentRewrites((prev) => [
+        { backupRef: result.backup_ref, timestamp: Date.now(), summary: `${modified} commits rewritten` },
+        ...prev,
+      ]);
 
       setPlan(null);
       setSelectedRewrites(new Set());

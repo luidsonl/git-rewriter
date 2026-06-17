@@ -2,7 +2,7 @@ pub mod git_engine;
 pub mod models;
 
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
-use models::{BackupInfo, CommitRewrite, RepoSummary, RewriteOperation, RewritePlan, ScanResult};
+use models::{ApplyResult, BackupInfo, RepoSummary, RewriteOperation, RewritePlan, ScanResult};
 use std::path::PathBuf;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
@@ -64,7 +64,7 @@ async fn preview_rewrite(path: String, operations: Vec<RewriteOperation>) -> Res
 }
 
 #[tauri::command]
-async fn apply_rewrite(path: String, operations: Vec<RewriteOperation>) -> Result<Vec<CommitRewrite>, String> {
+async fn apply_rewrite(path: String, operations: Vec<RewriteOperation>) -> Result<ApplyResult, String> {
     let scan_result = git_engine::scanner::scan_repository(&path)
         .map_err(|e| e.to_string())?;
     let plan = git_engine::rewriter::compute_rewrite_plan(&scan_result.commits, &operations);
@@ -77,10 +77,10 @@ async fn apply_rewrite(path: String, operations: Vec<RewriteOperation>) -> Resul
 
     eprintln!("Backup created at {}", backup_ref);
 
-    let result = git_engine::applier::apply_rewrite_plan(&repo, &plan)
+    let rewrites = git_engine::applier::apply_rewrite_plan(&repo, &plan)
         .map_err(|e| e.to_string())?;
 
-    Ok(result)
+    Ok(ApplyResult { rewrites, backup_ref })
 }
 
 #[tauri::command]

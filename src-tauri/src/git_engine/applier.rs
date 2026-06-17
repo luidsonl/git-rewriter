@@ -502,6 +502,49 @@ mod tests {
     }
 
     #[test]
+    fn test_rollback_with_fresh_repo_instance() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().to_str().unwrap().to_string();
+        let repo = gix::init_bare(&dir).unwrap();
+        let s = sig("Test", "test@test.com");
+
+        let original_oid = make_commit(&repo, "Original", &s, vec![]);
+        repo.reference("refs/heads/master", original_oid, gix::refs::transaction::PreviousValue::Any, "")
+            .unwrap();
+
+        // Create backup refs
+        let backup_prefix = create_backup_refs(&repo).unwrap();
+
+        // Rewrite: create new commit and update branch
+        let new_oid = make_commit(&repo, "Rewritten", &s, vec![original_oid]);
+        repo.reference("refs/heads/master", new_oid, gix::refs::transaction::PreviousValue::Any, "")
+            .unwrap();
+
+        // Verify branch changed
+        let master_ref = repo.find_reference("refs/heads/master").unwrap();
+        assert_eq!(master_ref.target().try_id().unwrap().to_string(), new_oid.to_string());
+
+        // Verify backup still points to original
+        let backup_name = format!("{backup_prefix}/master");
+        let backup_ref = repo.find_reference(&backup_name).unwrap();
+        assert_eq!(backup_ref.target().try_id().unwrap().to_string(), original_oid.to_string());
+
+        // Drop repo and open fresh instance (like Tauri commands do)
+        drop(repo);
+        let repo2 = gix::open(&path).unwrap();
+
+        // Rollback with fresh instance
+        rollback(&repo2, &backup_prefix).unwrap();
+
+        let restored = repo2.find_reference("refs/heads/master").unwrap();
+        assert_eq!(
+            restored.target().try_id().unwrap().to_string(),
+            original_oid.to_string(),
+            "Rollback should restore branch even with a fresh repo instance"
+        );
+    }
+
+    #[test]
     fn test_list_backups_returns_grouped_backups() {
         let (_dir, repo) = create_temp_repo();
         let s = sig("Test", "test@test.com");
