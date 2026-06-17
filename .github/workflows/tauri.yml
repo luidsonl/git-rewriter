@@ -1,10 +1,10 @@
 name: Tauri Build
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - "v*"
-  workflow_dispatch:
 
 permissions:
   contents: write
@@ -55,17 +55,13 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
-      - name: Get tag version
-        id: tag
-        run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
-
       - name: Build Tauri App
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ steps.tag.outputs.VERSION }}
-          releaseName: "App ${{ steps.tag.outputs.VERSION }}"
+          tagName: app-v__VERSION__ 
+          releaseName: "App v__VERSION__"
           releaseBody: "Release automática gerada pelo GitHub Actions."
           releaseDraft: false
           prerelease: false
