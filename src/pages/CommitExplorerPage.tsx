@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
@@ -123,6 +123,17 @@ function CommitPanel({ commit, repoPath, onClose }: CommitPanelProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [isStaged, setIsStaged] = useState(false);
   const [chronoWarning, setChronoWarning] = useState<string | null>(null);
+  const [syncCommitter, setSyncCommitter] = useState(true);
+
+  useEffect(() => {
+    if (syncCommitter) {
+      setEditCommitterName(editAuthorName);
+      setEditCommitterEmail(editAuthorEmail);
+      setEditCommitDate(editAuthorDate);
+      setEditCommitTime(editAuthorTime);
+      setEditCommitTz(editAuthorTz);
+    }
+  }, [syncCommitter, editAuthorName, editAuthorEmail, editAuthorDate, editAuthorTime, editAuthorTz]);
 
   const origAuthorDate = parseDateFields(commit.author_date);
   const origCommitDate = parseDateFields(commit.commit_date);
@@ -174,6 +185,7 @@ function CommitPanel({ commit, repoPath, onClose }: CommitPanelProps) {
     setEditCommitTz(cd.tz);
     setPreview(null);
     setChronoWarning(null);
+    setSyncCommitter(true);
     setIsEditing(false);
   };
 
@@ -409,60 +421,91 @@ function CommitPanel({ commit, repoPath, onClose }: CommitPanelProps) {
       </div>
 
       {isEditing && (
-        <div>
-          <p className="text-xs text-neutral-500 mb-2">Committer Date</p>
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <input
-                type="text"
-                value={editCommitDate}
-                onChange={(e) => setEditCommitDate(e.target.value)}
-                placeholder="YYYY-MM-DD"
-                className={inputCls}
-              />
+        <>
+          <label className="flex items-center gap-2 text-xs text-neutral-500 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={syncCommitter}
+              onChange={(e) => setSyncCommitter(e.target.checked)}
+              className="accent-neutral-400"
+            />
+            Sync committer with author
+          </label>
+
+          <div>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-neutral-500 mb-2">Committer Date</p>
+              {syncCommitter && <span className="text-[10px] text-neutral-600">synced</span>}
             </div>
-            <div className="w-24">
-              <input
-                type="text"
-                value={editCommitTime}
-                onChange={(e) => setEditCommitTime(e.target.value)}
-                placeholder="HH:MM"
-                className={inputCls}
-              />
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <input
+                  type="text"
+                  value={editCommitDate}
+                  onChange={(e) => setEditCommitDate(e.target.value)}
+                  placeholder="YYYY-MM-DD"
+                  className={`${inputCls} ${syncCommitter ? 'opacity-40' : ''}`}
+                  disabled={syncCommitter}
+                />
+              </div>
+              <div className="w-24">
+                <input
+                  type="text"
+                  value={editCommitTime}
+                  onChange={(e) => setEditCommitTime(e.target.value)}
+                  placeholder="HH:MM"
+                  className={`${inputCls} ${syncCommitter ? 'opacity-40' : ''}`}
+                  disabled={syncCommitter}
+                />
+              </div>
+              <div className="w-20">
+                <input
+                  type="text"
+                  value={editCommitTz}
+                  onChange={(e) => setEditCommitTz(e.target.value)}
+                  placeholder="±HHMM"
+                  className={`${inputCls} ${syncCommitter ? 'opacity-40' : ''}`}
+                  disabled={syncCommitter}
+                />
+              </div>
             </div>
-            <div className="w-20">
+          </div>
+
+          <div>
+            <p className="text-xs text-neutral-500 mb-2">Committer Identity</p>
+            <div className="flex flex-col gap-2">
               <input
                 type="text"
-                value={editCommitTz}
-                onChange={(e) => setEditCommitTz(e.target.value)}
-                placeholder="±HHMM"
-                className={inputCls}
+                value={editCommitterName}
+                onChange={(e) => setEditCommitterName(e.target.value)}
+                placeholder="Committer name"
+                className={`${inputCls} ${syncCommitter ? 'opacity-40' : ''}`}
+                disabled={syncCommitter}
+              />
+              <input
+                type="text"
+                value={editCommitterEmail}
+                onChange={(e) => setEditCommitterEmail(e.target.value)}
+                placeholder="Committer email"
+                className={`${inputCls} ${syncCommitter ? 'opacity-40' : ''}`}
+                disabled={syncCommitter}
               />
             </div>
           </div>
-        </div>
+        </>
       )}
 
-      {commit.committer_name !== commit.author_name && (
+      {!isEditing && commit.committer_name !== commit.author_name && (
         <div>
           <p className="text-xs text-neutral-500 mb-2">Committer</p>
-          {isEditing ? (
-            <div className="flex flex-col gap-2">
-              <TextInput value={editCommitterName} onChange={(e) => setEditCommitterName(e.target.value)} placeholder="Committer name" />
-              <TextInput value={editCommitterEmail} onChange={(e) => setEditCommitterEmail(e.target.value)} placeholder="Committer email" />
+          <div className="flex items-center gap-2">
+            <Avatar name={commit.committer_name} size="sm" />
+            <div>
+              <p className="text-sm text-white">{commit.committer_name}</p>
+              <p className="text-xs text-neutral-500 font-mono">{commit.committer_email}</p>
             </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-2">
-                <Avatar name={commit.committer_name} size="sm" />
-                <div>
-                  <p className="text-sm text-white">{commit.committer_name}</p>
-                  <p className="text-xs text-neutral-500 font-mono">{commit.committer_email}</p>
-                </div>
-              </div>
-              <p className="text-xs text-neutral-600 mt-1">{formatDate(commit.commit_date)}</p>
-            </>
-          )}
+          </div>
+          <p className="text-xs text-neutral-600 mt-1">{formatDate(commit.commit_date)}</p>
         </div>
       )}
 

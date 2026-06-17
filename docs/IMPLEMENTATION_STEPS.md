@@ -41,6 +41,11 @@ This document outlines the milestones for developing the Git Rewriter.
 - [x] Implement single commit editing flow in UI (edit message/author/committer/dates in CommitExplorerPage).
 - [x] Integrate safety dialogs (ConfirmDialog) showing what will change before applying.
 - [x] Implement individual commit date editing with chronological validation (parent dates ≤ child dates).
+- [x] Date/time editing uses plain text inputs (not native date/time pickers — broken on Linux WebKitGTK).
+- [x] Separate TZ text field (`±HHMM`) with permissive normalization (accepts `0000`, `+0000`, `-0300`, `05:30`, `-5`, etc.).
+- [x] Staged-operation workflow: changes are staged in-store first, then batch-applied from PreviewPage.
+- [x] PreviewPage rewritten as staging review area with staged changes list, unstaging, identity merge suggestions, Apply All.
+- [x] Sync committer checkbox: when checked, committer date/time/TZ and name/email mirror author fields via useEffect.
 - [ ] UI polish, loading states, empty states.
 
 ## Milestone 6: Polish and QA
@@ -54,4 +59,5 @@ This document outlines the milestones for developing the Git Rewriter.
 - [x] Refresh current repository scan.
 - [x] Recent repositories list with localStorage persistence.
 - [x] Clear recent repositories list.
-- [x] Remove backup infrastructure (backups are no longer created).
+- [x] Staged operations persisted to localStorage, cleared on repo switch.
+- [x] Remove backup infrastructure (backups are no longer created; `backup_ref` removed from `RewritePlan` and `ApplyResult`).
