@@ -154,7 +154,7 @@ export const useRepositoryStore = create<RepositoryState>((set) => ({
   }),
   clearRecentRepos: () => {
     saveRecentRepos([]);
-    return { recentRepos: [] };
+    return set({ recentRepos: [] });
   },
   stageOp: (op) => set((state) => {
     const updated = [...state.stagedOps, op];
@@ -168,6 +168,6 @@ export const useRepositoryStore = create<RepositoryState>((set) => ({
   }),
   clearStaged: () => {
     saveStagedOps([]);
-    return { stagedOps: [] };
+    return set({ stagedOps: [] });
   },
 }));

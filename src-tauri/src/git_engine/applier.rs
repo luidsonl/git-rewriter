@@ -18,8 +18,17 @@ fn current_timestamp() -> String {
 fn parse_time(s: &str) -> gix::date::Time {
     if let Some((secs, offset)) = s.split_once(' ') {
         let secs: i64 = secs.parse().unwrap_or(0);
-        let offset: i32 = offset.parse().unwrap_or(0);
-        gix::date::Time::new(secs, offset)
+        let offset_str = offset.trim();
+        let (sign, digits) = if let Some(rest) = offset_str.strip_prefix('-') {
+            (-1, rest)
+        } else {
+            let rest = offset_str.strip_prefix('+').unwrap_or(offset_str);
+            (1, rest)
+        };
+        let hours: i32 = digits.get(..2).and_then(|d| d.parse().ok()).unwrap_or(0);
+        let minutes: i32 = digits.get(2..4).and_then(|d| d.parse().ok()).unwrap_or(0);
+        let offset_seconds = sign * (hours * 3600 + minutes * 60);
+        gix::date::Time::new(secs, offset_seconds)
     } else {
         gix::date::Time::now_local_or_utc()
     }
@@ -165,7 +174,6 @@ fn update_references(
         let peeled_hex = peeled.to_hex().to_string();
         if let Some(new_id) = sha_map.get(&peeled_hex) {
             let name = reference.name().to_owned();
-            eprintln!("Updating ref {} from {} to {}", name, peeled_hex, new_id);
             repo.reference(name, *new_id, gix::refs::transaction::PreviousValue::Any, "")?;
         }
     }

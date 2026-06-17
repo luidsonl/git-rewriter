@@ -35,6 +35,7 @@ function parseDateFields(raw: string): { date: string; time: string } {
 function combineDateFields(dateStr: string, timeStr: string, originalRaw: string): string {
   if (!dateStr) return originalRaw;
   const d = new Date(`${dateStr}T${timeStr || '00:00'}`);
+  if (isNaN(d.getTime())) return originalRaw;
   const secs = Math.floor(d.getTime() / 1000);
   const offset = -d.getTimezoneOffset();
   const sign = offset >= 0 ? '+' : '-';
@@ -283,11 +284,23 @@ function CommitPanel({ commit, repoPath, onClose }: CommitPanelProps) {
             <div className="flex gap-2">
               <div className="flex-1">
                 <p className="text-xs text-neutral-600 mb-1">Date</p>
-                <input type="date" value={editAuthorDate} onChange={(e) => setEditAuthorDate(e.target.value)} className={inputCls} />
+                <input
+                  type="text"
+                  value={editAuthorDate}
+                  onChange={(e) => setEditAuthorDate(e.target.value)}
+                  placeholder="YYYY-MM-DD"
+                  className={inputCls}
+                />
               </div>
               <div className="w-28">
                 <p className="text-xs text-neutral-600 mb-1">Time</p>
-                <input type="time" value={editAuthorTime} onChange={(e) => setEditAuthorTime(e.target.value)} className={inputCls} />
+                <input
+                  type="text"
+                  value={editAuthorTime}
+                  onChange={(e) => setEditAuthorTime(e.target.value)}
+                  placeholder="HH:MM"
+                  className={inputCls}
+                />
               </div>
             </div>
           </div>
@@ -310,10 +323,22 @@ function CommitPanel({ commit, repoPath, onClose }: CommitPanelProps) {
           <p className="text-xs text-neutral-500 mb-2">Committer Date</p>
           <div className="flex gap-2">
             <div className="flex-1">
-              <input type="date" value={editCommitDate} onChange={(e) => setEditCommitDate(e.target.value)} className={inputCls} />
+              <input
+                type="text"
+                value={editCommitDate}
+                onChange={(e) => setEditCommitDate(e.target.value)}
+                placeholder="YYYY-MM-DD"
+                className={inputCls}
+              />
             </div>
             <div className="w-28">
-              <input type="time" value={editCommitTime} onChange={(e) => setEditCommitTime(e.target.value)} className={inputCls} />
+              <input
+                type="text"
+                value={editCommitTime}
+                onChange={(e) => setEditCommitTime(e.target.value)}
+                placeholder="HH:MM"
+                className={inputCls}
+              />
             </div>
           </div>
         </div>
