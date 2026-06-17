@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
 import { useRepositoryStore, CommitInfo, RewritePlan, StagedOperation } from '../stores/repositoryStore';
 import { useNotificationStore } from '../stores/notificationStore';
-import { Search, ChevronRight, Pencil, X, Loader2, Plus, Eye } from 'lucide-react';
+import { Search, ChevronRight, Pencil, X, Loader2, Plus, Eye, AlertTriangle } from 'lucide-react';
 import { TextInput, Avatar, Badge, PageTitle, Button } from '../components/atoms';
 import { EmptyState } from '../components/molecules';
 
@@ -13,37 +13,86 @@ function parseUnixTimestamp(raw: string): number {
   return parseInt(parts[0], 10);
 }
 
-function formatDate(raw: string): string {
-  const secs = parseUnixTimestamp(raw);
-  if (isNaN(secs)) return raw;
-  return new Date(secs * 1000).toLocaleDateString(undefined, {
-    year: 'numeric', month: 'short', day: 'numeric',
-  });
+function parseTimezoneOffset(raw: string): number {
+  const parts = raw.split(' ');
+  const off = parts[1] || '+0000';
+  return parseTzOffset(off);
 }
 
-function parseDateFields(raw: string): { date: string; time: string } {
-  const secs = parseUnixTimestamp(raw);
-  if (isNaN(secs)) return { date: '', time: '' };
-  const d = new Date(secs * 1000);
+function parseTzOffset(tz: string): number {
+  const sign = tz.startsWith('-') ? -1 : 1;
+  const digits = tz.replace(/^[+-]/, '');
+  return sign * ((parseInt(digits.slice(0, 2), 10) || 0) * 3600 + (parseInt(digits.slice(2, 4), 10) || 0) * 60);
+}
+
+function extractTz(raw: string): string {
+  const parts = raw.split(' ');
+  return parts[1] || '+0000';
+}
+
+function displayInTimezone(secs: number, tzOffsetSecs: number) {
+  const d = new Date((secs + tzOffsetSecs) * 1000);
   const pad = (n: number) => n.toString().padStart(2, '0');
   return {
-    date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
-    time: `${pad(d.getHours())}:${pad(d.getMinutes())}`,
+    date: `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`,
+    time: `${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}`,
   };
 }
 
-function combineDateFields(dateStr: string, timeStr: string, originalRaw: string): string {
+function formatDate(raw: string): string {
+  const secs = parseUnixTimestamp(raw);
+  if (isNaN(secs)) return raw;
+  const tzOffset = parseTimezoneOffset(raw);
+  const d = new Date((secs + tzOffset) * 1000);
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  return `${d.getUTCDate()} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+}
+
+function parseDateFields(raw: string): { date: string; time: string; tz: string } {
+  const secs = parseUnixTimestamp(raw);
+  if (isNaN(secs)) return { date: '', time: '', tz: '+0000' };
+  const tz = extractTz(raw);
+  const tzOffset = parseTimezoneOffset(raw);
+  const { date, time } = displayInTimezone(secs, tzOffset);
+  return { date, time, tz };
+}
+
+function rawToUtcSecs(raw: string): number {
+  return parseUnixTimestamp(raw);
+}
+
+function normalizeTz(raw: string): string | null {
+  let s = raw.trim();
+  if (!s) return null;
+  if (/^[+-]\d{4}$/.test(s)) return s;
+  if (/^[+-]\d{2}:\d{2}$/.test(s)) return s.slice(0, 3) + s.slice(4);
+  if (/^\d{4}$/.test(s)) return `+${s}`;
+  const m = s.match(/^([+-])?(\d{1,2})(?::(\d{2}))?$/);
+  if (m) {
+    const sign = m[1] || '+';
+    const h = parseInt(m[2], 10);
+    const min = m[3] ? parseInt(m[3], 10) : 0;
+    if (h >= 0 && h <= 23 && min >= 0 && min <= 59) {
+      return `${sign}${String(h).padStart(2, '0')}${String(min).padStart(2, '0')}`;
+    }
+  }
+  return null;
+}
+
+function combineDateFields(dateStr: string, timeStr: string, tzStr: string, originalRaw: string, origParsed: { date: string; time: string; tz: string }): string {
   if (!dateStr) return originalRaw;
-  const d = new Date(`${dateStr}T${timeStr || '00:00'}`);
-  if (isNaN(d.getTime())) return originalRaw;
-  const secs = Math.floor(d.getTime() / 1000);
-  const offset = -d.getTimezoneOffset();
-  const sign = offset >= 0 ? '+' : '-';
-  const absOffset = Math.abs(offset);
-  const hours = Math.floor(absOffset / 60);
-  const mins = absOffset % 60;
-  const tz = `${sign}${String(hours).padStart(2, '0')}${String(mins).padStart(2, '0')}`;
-  return `${secs} ${tz}`;
+  if (dateStr === origParsed.date && timeStr === origParsed.time && tzStr === origParsed.tz) {
+    return originalRaw;
+  }
+  const norm = normalizeTz(tzStr);
+  if (!norm) return originalRaw;
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const [hh, mm] = (timeStr || '00:00').split(':').map(Number);
+  const utcMs = Date.UTC(y, m - 1, d, hh, mm, 0);
+  if (isNaN(utcMs)) return originalRaw;
+  const tzSecs = parseTzOffset(norm);
+  const secs = Math.floor(utcMs / 1000) - tzSecs;
+  return `${secs} ${norm}`;
 }
 
 interface CommitPanelProps {
@@ -64,13 +113,16 @@ function CommitPanel({ commit, repoPath, onClose }: CommitPanelProps) {
   const [editAuthorEmail, setEditAuthorEmail] = useState(commit.author_email);
   const [editAuthorDate, setEditAuthorDate] = useState(parseDateFields(commit.author_date).date);
   const [editAuthorTime, setEditAuthorTime] = useState(parseDateFields(commit.author_date).time);
+  const [editAuthorTz, setEditAuthorTz] = useState(parseDateFields(commit.author_date).tz);
   const [editCommitterName, setEditCommitterName] = useState(commit.committer_name);
   const [editCommitterEmail, setEditCommitterEmail] = useState(commit.committer_email);
   const [editCommitDate, setEditCommitDate] = useState(parseDateFields(commit.commit_date).date);
   const [editCommitTime, setEditCommitTime] = useState(parseDateFields(commit.commit_date).time);
+  const [editCommitTz, setEditCommitTz] = useState(parseDateFields(commit.commit_date).tz);
   const [preview, setPreview] = useState<RewritePlan | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isStaged, setIsStaged] = useState(false);
+  const [chronoWarning, setChronoWarning] = useState<string | null>(null);
 
   const origAuthorDate = parseDateFields(commit.author_date);
   const origCommitDate = parseDateFields(commit.commit_date);
@@ -83,8 +135,28 @@ function CommitPanel({ commit, repoPath, onClose }: CommitPanelProps) {
     editCommitterEmail !== commit.committer_email ||
     editAuthorDate !== origAuthorDate.date ||
     editAuthorTime !== origAuthorDate.time ||
+    editAuthorTz !== origAuthorDate.tz ||
     editCommitDate !== origCommitDate.date ||
-    editCommitTime !== origCommitDate.time;
+    editCommitTime !== origCommitDate.time ||
+    editCommitTz !== origCommitDate.tz;
+
+  const chronoCheck = (): string | null => {
+    const newRaw = combineDateFields(editAuthorDate, editAuthorTime, editAuthorTz, commit.author_date, origAuthorDate);
+    const newSecs = rawToUtcSecs(newRaw);
+    if (commit.parent_shas.length === 0) return null;
+    const scanResult = useRepositoryStore.getState().scanResult;
+    if (!scanResult) return null;
+    for (const parentSha of commit.parent_shas) {
+      const parent = scanResult.commits.find((c) => c.sha === parentSha);
+      if (parent) {
+        const parentSecs = rawToUtcSecs(parent.author_date);
+        if (parentSecs > newSecs) {
+          return `Parent commit ${parentSha.slice(0, 8)} has a later date than this commit.`;
+        }
+      }
+    }
+    return null;
+  };
 
   const resetEdit = () => {
     setEditMessage(commit.message);
@@ -93,12 +165,15 @@ function CommitPanel({ commit, repoPath, onClose }: CommitPanelProps) {
     const ad = parseDateFields(commit.author_date);
     setEditAuthorDate(ad.date);
     setEditAuthorTime(ad.time);
+    setEditAuthorTz(ad.tz);
     setEditCommitterName(commit.committer_name);
     setEditCommitterEmail(commit.committer_email);
     const cd = parseDateFields(commit.commit_date);
     setEditCommitDate(cd.date);
     setEditCommitTime(cd.time);
+    setEditCommitTz(cd.tz);
     setPreview(null);
+    setChronoWarning(null);
     setIsEditing(false);
   };
 
@@ -139,13 +214,18 @@ function CommitPanel({ commit, repoPath, onClose }: CommitPanelProps) {
       }
     }
 
-    if (editAuthorDate !== origAuthorDate.date || editAuthorTime !== origAuthorDate.time ||
-        editCommitDate !== origCommitDate.date || editCommitTime !== origCommitDate.time) {
+    if (editAuthorDate !== origAuthorDate.date || editAuthorTime !== origAuthorDate.time || editAuthorTz !== origAuthorDate.tz ||
+        editCommitDate !== origCommitDate.date || editCommitTime !== origCommitDate.time || editCommitTz !== origCommitDate.tz) {
+      const warn = chronoCheck();
+      setChronoWarning(warn);
+      if (warn) addToast(warn, 'info');
+      const newAuthorDate = combineDateFields(editAuthorDate, editAuthorTime, editAuthorTz, commit.author_date, origAuthorDate);
+      const newCommitDate = combineDateFields(editCommitDate, editCommitTime, editCommitTz, commit.commit_date, origCommitDate);
       operations.push({
         AuthorDate: {
           target_sha: commit.sha,
-          new_author_date: combineDateFields(editAuthorDate, editAuthorTime, commit.author_date),
-          new_commit_date: combineDateFields(editCommitDate, editCommitTime, commit.commit_date),
+          new_author_date: newAuthorDate,
+          new_commit_date: newCommitDate,
         },
       });
     }
@@ -170,13 +250,13 @@ function CommitPanel({ commit, repoPath, onClose }: CommitPanelProps) {
     if (editCommitterEmail !== commit.committer_email) {
       details.push({ field: 'Committer email', before: commit.committer_email, after: editCommitterEmail });
     }
-    const newAuthorDate = combineDateFields(editAuthorDate, editAuthorTime, commit.author_date);
+    const newAuthorDate = combineDateFields(editAuthorDate, editAuthorTime, editAuthorTz, commit.author_date, origAuthorDate);
     if (newAuthorDate !== commit.author_date) {
-      details.push({ field: 'Author date', before: formatDate(commit.author_date), after: editAuthorDate });
+      details.push({ field: 'Author date', before: formatDate(commit.author_date), after: `${editAuthorDate} ${editAuthorTime} ${editAuthorTz}` });
     }
-    const newCommitDate = combineDateFields(editCommitDate, editCommitTime, commit.commit_date);
+    const newCommitDate = combineDateFields(editCommitDate, editCommitTime, editCommitTz, commit.commit_date, origCommitDate);
     if (newCommitDate !== commit.commit_date) {
-      details.push({ field: 'Commit date', before: formatDate(commit.commit_date), after: editCommitDate });
+      details.push({ field: 'Commit date', before: formatDate(commit.commit_date), after: `${editCommitDate} ${editCommitTime} ${editCommitTz}` });
     }
     return details;
   };
@@ -292,13 +372,23 @@ function CommitPanel({ commit, repoPath, onClose }: CommitPanelProps) {
                   className={inputCls}
                 />
               </div>
-              <div className="w-28">
+              <div className="w-24">
                 <p className="text-xs text-neutral-600 mb-1">Time</p>
                 <input
                   type="text"
                   value={editAuthorTime}
                   onChange={(e) => setEditAuthorTime(e.target.value)}
                   placeholder="HH:MM"
+                  className={inputCls}
+                />
+              </div>
+              <div className="w-20">
+                <p className="text-xs text-neutral-600 mb-1">TZ</p>
+                <input
+                  type="text"
+                  value={editAuthorTz}
+                  onChange={(e) => setEditAuthorTz(e.target.value)}
+                  placeholder="±HHMM"
                   className={inputCls}
                 />
               </div>
@@ -331,12 +421,21 @@ function CommitPanel({ commit, repoPath, onClose }: CommitPanelProps) {
                 className={inputCls}
               />
             </div>
-            <div className="w-28">
+            <div className="w-24">
               <input
                 type="text"
                 value={editCommitTime}
                 onChange={(e) => setEditCommitTime(e.target.value)}
                 placeholder="HH:MM"
+                className={inputCls}
+              />
+            </div>
+            <div className="w-20">
+              <input
+                type="text"
+                value={editCommitTz}
+                onChange={(e) => setEditCommitTz(e.target.value)}
+                placeholder="±HHMM"
                 className={inputCls}
               />
             </div>
@@ -364,6 +463,13 @@ function CommitPanel({ commit, repoPath, onClose }: CommitPanelProps) {
               <p className="text-xs text-neutral-600 mt-1">{formatDate(commit.commit_date)}</p>
             </>
           )}
+        </div>
+      )}
+
+      {chronoWarning && (
+        <div className="flex items-start gap-2 text-xs text-amber-400 bg-amber-400/5 border border-amber-400/20 rounded-md p-3">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+          <span>{chronoWarning}</span>
         </div>
       )}
 
