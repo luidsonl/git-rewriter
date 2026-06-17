@@ -1,54 +1,17 @@
-import { useState, useMemo, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
+import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { invoke } from '@tauri-apps/api/core';
-import { useRepositoryStore, Contributor, RewritePlan, RewriteOperation, ApplyResult, CommitRewrite } from '../stores/repositoryStore';
+import { useRepositoryStore, Contributor, ApplyResult } from '../stores/repositoryStore';
 import { useNotificationStore } from '../stores/notificationStore';
-import { GitCommit, Users, Shuffle, AlertTriangle, Loader2 } from 'lucide-react';
+import { GitCommit, Users, Shuffle, Loader2, Trash2, Play } from 'lucide-react';
 import { Button, Avatar, Badge, PageTitle } from '../components/atoms';
-import { EmptyState, ConfirmDialog } from '../components/molecules';
+import { ConfirmDialog } from '../components/molecules';
 
 interface Suggestion {
   targetName: string;
   targetEmail: string;
   contributors: Contributor[];
   commitCount: number;
-}
-
-function SuggestionRow({ suggestion }: { suggestion: Suggestion }) {
-  return (
-    <div className="border border-neutral-800 rounded-lg p-4 bg-neutral-900/50">
-      <div className="flex items-center gap-3 mb-3">
-        <Shuffle size={16} className="text-neutral-500" />
-        <div className="text-sm text-neutral-400">
-          Merge <span className="text-white font-mono">{suggestion.contributors.length}</span> identities into
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2 mb-4">
-        <Avatar name={suggestion.targetName} />
-        <div>
-          <div className="text-sm text-white">{suggestion.targetName}</div>
-          <div className="text-xs text-neutral-500 font-mono">{suggestion.targetEmail}</div>
-        </div>
-      </div>
-
-      <div className="text-xs text-neutral-600 mb-2">Contributors to merge:</div>
-      <div className="flex flex-col gap-2">
-        {suggestion.contributors.map((c) => (
-          <div key={c.id} className="flex items-center gap-2 text-xs text-neutral-400">
-            <Badge variant="mono">{c.commit_count} commits</Badge>
-            <span>{c.name}</span>
-            <span className="font-mono text-neutral-600">&lt;{c.email}&gt;</span>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-3 pt-3 border-t border-neutral-800 flex items-center gap-2 text-xs text-neutral-500">
-        <GitCommit size={14} />
-        {suggestion.commitCount} commits will be rewritten
-      </div>
-    </div>
-  );
 }
 
 function getMergeSuggestions(contributors: Contributor[]): Suggestion[] {
@@ -87,122 +50,76 @@ function getMergeSuggestions(contributors: Contributor[]): Suggestion[] {
   return suggestions;
 }
 
-function toOperations(suggestions: Suggestion[], selected: Set<number>): RewriteOperation[] {
-  const ops: RewriteOperation[] = [];
-  for (const idx of selected) {
-    const s = suggestions[idx];
-    for (const c of s.contributors) {
-      if (c.name !== s.targetName || c.email !== s.targetEmail) {
-        ops.push({
-          Identity: {
-            old_name: c.name,
-            old_email: c.email,
-            new_name: s.targetName,
-            new_email: s.targetEmail,
-            rewrite_committer: true,
-          },
-        });
-      }
-    }
-  }
-  return ops;
-}
-
-function CommitDiff({ rewrites }: { rewrites: CommitRewrite[] }) {
-  const modified = rewrites.filter((r) => r.is_modified);
-  return (
-    <div className="border border-neutral-800 rounded-lg p-4 bg-neutral-900/50 mt-6">
-      <h3 className="text-sm font-medium text-neutral-300 mb-3">
-        Rewrite Plan — {modified.length} commits affected
-      </h3>
-      <div className="space-y-1 max-h-60 overflow-y-auto">
-        {modified.map((r) => (
-          <div key={r.old_sha} className="flex items-center gap-2 text-xs font-mono text-neutral-400">
-            <Badge variant="mono">{r.old_sha.slice(0, 8)}</Badge>
-            <span className="text-neutral-600">→</span>
-            <Badge variant="mono">{r.new_sha.slice(0, 8)}</Badge>
-            <span className="text-neutral-500 ml-1 truncate">{r.message}</span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function PreviewPage() {
-  const { t } = useTranslation();
-  const { currentRepo, scanResult, setScanResult } = useRepositoryStore();
+  const navigate = useNavigate();
+  const { currentRepo, scanResult, stagedOps, unstageOp } = useRepositoryStore();
   const { addToast } = useNotificationStore();
-  const [selectedRewrites, setSelectedRewrites] = useState<Set<number>>(new Set());
-  const [plan, setPlan] = useState<RewritePlan | null>(null);
-  const [isComputing, setIsComputing] = useState(false);
   const [isApplying, setIsApplying] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
-
-  useEffect(() => {
-    if (!currentRepo) return;
-    const refresh = async () => {
-      try {
-        const fresh = await invoke<any>('scan_repository', { path: currentRepo.path });
-        setScanResult(fresh);
-      } catch {
-        // store already has data, silently ignore
-      }
-    };
-    refresh();
-  }, [currentRepo, setScanResult]);
+  const [selectedMerges, setSelectedMerges] = useState<Set<number>>(new Set());
 
   const suggestions = useMemo(() => {
     if (!scanResult) return [];
     return getMergeSuggestions(scanResult.contributors);
   }, [scanResult]);
 
-  const toggleRewrite = (idx: number) => {
-    setSelectedRewrites((prev) => {
+  const toggleMerge = (idx: number) => {
+    setSelectedMerges((prev) => {
       const next = new Set(prev);
       if (next.has(idx)) next.delete(idx);
       else next.add(idx);
       return next;
     });
-    setPlan(null);
   };
 
-  const computePreview = async () => {
-    if (!currentRepo || selectedRewrites.size === 0) return;
-    setIsComputing(true);
-    try {
-      const operations = toOperations(suggestions, selectedRewrites);
-      const result = await invoke<RewritePlan>('preview_rewrite', {
-        path: currentRepo.path,
-        operations,
-      });
-      setPlan(result);
-      addToast(`Preview: ${result.total_affected} commits will be rewritten`, 'info');
-    } catch (e) {
-      addToast(`Preview failed: ${String(e)}`, 'error');
-    } finally {
-      setIsComputing(false);
+  const stageMerges = () => {
+    if (selectedMerges.size === 0) return;
+    const { stageOp } = useRepositoryStore.getState();
+    for (const idx of selectedMerges) {
+      const s = suggestions[idx];
+      for (const c of s.contributors) {
+        if (c.name === s.targetName && c.email === s.targetEmail) continue;
+        stageOp({
+          id: `merge-${c.id}-${Date.now()}`,
+          summary: `Merge ${c.name} <${c.email}> → ${s.targetName} <${s.targetEmail}>`,
+          oldSha: c.commit_shas[0] || '',
+          details: [
+            { field: 'Identity', before: `${c.name} <${c.email}>`, after: `${s.targetName} <${s.targetEmail}>` },
+          ],
+          operations: [{
+            Identity: {
+              old_name: c.name,
+              old_email: c.email,
+              new_name: s.targetName,
+              new_email: s.targetEmail,
+              rewrite_committer: true,
+            },
+          }],
+        });
+      }
     }
+    setSelectedMerges(new Set());
+    addToast(`${selectedMerges.size} merge(s) staged.`, 'success');
   };
 
-  const handleApply = async () => {
-    if (!currentRepo || selectedRewrites.size === 0) return;
+  const handleApplyAll = async () => {
+    if (!currentRepo || stagedOps.length === 0) return;
     setShowConfirm(false);
     setIsApplying(true);
     try {
-      const operations = toOperations(suggestions, selectedRewrites);
+      const allOps = stagedOps.flatMap((s) => s.operations);
       const result = await invoke<ApplyResult>('apply_rewrite', {
         path: currentRepo.path,
-        operations,
+        operations: allOps,
       });
       const modified = result.rewrites.filter((r) => r.is_modified).length;
       addToast(`Rewrite applied: ${modified} commits rewritten.`, 'success');
 
-      setPlan(null);
-      setSelectedRewrites(new Set());
-
       const freshScan = await invoke<any>('scan_repository', { path: currentRepo.path });
-      setScanResult(freshScan);
+      const store = useRepositoryStore.getState();
+      store.clearStaged();
+      store.setScanResult(freshScan);
+      navigate('/');
     } catch (e) {
       addToast(`Rewrite failed: ${String(e)}`, 'error');
     } finally {
@@ -213,73 +130,140 @@ export function PreviewPage() {
   return (
     <div className="p-8 flex flex-col h-full overflow-y-auto">
       <div className="flex items-center justify-between mb-6">
-        <PageTitle>{t('nav.preview')}</PageTitle>
-
-        {selectedRewrites.size > 0 && (
+        <PageTitle>Review & Apply</PageTitle>
+        {stagedOps.length > 0 && (
           <div className="flex items-center gap-3">
-            <Button onClick={computePreview} variant="ghost" disabled={isComputing}>
-              {isComputing ? <Loader2 size={16} className="animate-spin" /> : <Shuffle size={16} />}
-              Preview
+            <span className="text-xs text-neutral-500">{stagedOps.length} staged</span>
+            <Button onClick={() => setShowConfirm(true)} variant="primary" disabled={isApplying}>
+              {isApplying ? <Loader2 size={16} className="animate-spin" /> : <Play size={16} />}
+              Apply All
             </Button>
-            {plan && (
-              <>
-                <div className="flex items-center gap-2 text-xs text-neutral-500">
-                  <AlertTriangle size={14} className="text-amber-500" />
-                  {plan.total_affected} commits affected
-                </div>
-                <Button onClick={() => setShowConfirm(true)} variant="primary" disabled={isApplying}>
-                  {isApplying ? <Loader2 size={16} className="animate-spin" /> : <Shuffle size={16} />}
-                  Apply Rewrite
-                </Button>
-              </>
-            )}
           </div>
         )}
       </div>
 
       <ConfirmDialog
         open={showConfirm}
-        title="Apply Rewrite"
-        description={`This will rewrite ${plan?.total_affected ?? 0} commit(s) across ${plan?.branches_affected?.length ?? 0} branch(es). This cannot be undone.`}
-        confirmLabel="Apply"
+        title="Apply All Staged Changes"
+        description={`This will rewrite ${stagedOps.flatMap(s => s.operations).length} operation(s). This cannot be undone.`}
+        confirmLabel="Apply All"
         destructive
         loading={isApplying}
-        onConfirm={handleApply}
+        onConfirm={handleApplyAll}
         onCancel={() => setShowConfirm(false)}
       />
 
-      {!currentRepo || !scanResult ? (
-        <EmptyState
-          title="No repository open."
-          description="Open a repository from the Dashboard first."
-        />
-      ) : suggestions.length === 0 ? (
-        <EmptyState
-          title="No merge suggestions"
-          description="All contributor identities appear to be consistent."
-        />
-      ) : (
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 text-sm text-neutral-500 mb-2">
-            <Users size={16} />
-            Found {suggestions.length} possible identity {suggestions.length === 1 ? 'merge' : 'merges'}
+      {/* Staged changes section */}
+      <div className="mb-8">
+        <h2 className="text-sm font-medium text-neutral-300 mb-3 flex items-center gap-2">
+          <GitCommit size={16} /> Staged Changes
+          {stagedOps.length > 0 && (
+            <Badge variant="mono">{stagedOps.length}</Badge>
+          )}
+        </h2>
+
+        {stagedOps.length === 0 ? (
+          <div className="border border-dashed border-neutral-800 rounded-lg p-8 text-center">
+            <p className="text-sm text-neutral-600 mb-2">No changes staged yet.</p>
+            <p className="text-xs text-neutral-700">
+              Edit commits in <button onClick={() => navigate('/explorer')} className="text-neutral-500 hover:text-white underline">Explorer</button> and stage your changes, then come here to apply.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {stagedOps.map((op) => (
+              <div key={op.id} className="border border-neutral-800 rounded-lg p-4 bg-neutral-900/50">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="mono">{op.oldSha.slice(0, 8)}</Badge>
+                      <span className="text-sm text-neutral-300 truncate">{op.summary}</span>
+                    </div>
+                    <div className="space-y-0.5 mt-2">
+                      {op.details.map((d, i) => (
+                        <div key={i} className="flex items-center gap-2 text-xs">
+                          <span className="text-neutral-500 w-24 shrink-0">{d.field}</span>
+                          <span className="text-neutral-500 line-through truncate">{d.before}</span>
+                          <span className="text-neutral-700">→</span>
+                          <span className="text-emerald-400 truncate">{d.after}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => unstageOp(op.id)}
+                    className="p-1 rounded text-neutral-600 hover:text-red-400 hover:bg-neutral-800 transition-colors shrink-0"
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Identity merge suggestions */}
+      {scanResult && suggestions.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-medium text-neutral-300 flex items-center gap-2">
+              <Users size={16} /> Identity Merge Suggestions
+              <Badge variant="mono">{suggestions.length}</Badge>
+            </h2>
+            {selectedMerges.size > 0 && (
+              <Button size="sm" variant="ghost" onClick={stageMerges}>
+                <Shuffle size={14} /> Stage Selected ({selectedMerges.size})
+              </Button>
+            )}
           </div>
 
-          {suggestions.map((s, idx) => (
-            <button
-              key={idx}
-              onClick={() => toggleRewrite(idx)}
-              className={`w-full text-left transition-all ${
-                selectedRewrites.has(idx)
-                  ? 'ring-1 ring-neutral-400 rounded-lg'
-                  : 'opacity-60 hover:opacity-100'
-              }`}
-            >
-              <SuggestionRow suggestion={s} />
-            </button>
-          ))}
+          <div className="space-y-3">
+            {suggestions.map((s, idx) => (
+              <button
+                key={idx}
+                onClick={() => toggleMerge(idx)}
+                className={`w-full text-left transition-all rounded-lg ${
+                  selectedMerges.has(idx)
+                    ? 'ring-1 ring-neutral-400'
+                    : 'opacity-60 hover:opacity-100'
+                }`}
+              >
+                <div className="border border-neutral-800 rounded-lg p-4 bg-neutral-900/50">
+                  <div className="flex items-center gap-3 mb-3">
+                    <Shuffle size={16} className="text-neutral-500" />
+                    <div className="text-sm text-neutral-400">
+                      Merge <span className="text-white font-mono">{s.contributors.length}</span> identities into
+                    </div>
+                  </div>
 
-          {plan && <CommitDiff rewrites={plan.rewrites} />}
+                  <div className="flex items-center gap-2 mb-4">
+                    <Avatar name={s.targetName} />
+                    <div>
+                      <div className="text-sm text-white">{s.targetName}</div>
+                      <div className="text-xs text-neutral-500 font-mono">{s.targetEmail}</div>
+                    </div>
+                  </div>
+
+                  <div className="text-xs text-neutral-600 mb-2">Contributors to merge:</div>
+                  <div className="flex flex-col gap-2">
+                    {s.contributors.map((c) => (
+                      <div key={c.id} className="flex items-center gap-2 text-xs text-neutral-400">
+                        <Badge variant="mono">{c.commit_count} commits</Badge>
+                        <span>{c.name}</span>
+                        <span className="font-mono text-neutral-600">&lt;{c.email}&gt;</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-3 pt-3 border-t border-neutral-800 flex items-center gap-2 text-xs text-neutral-500">
+                    <GitCommit size={14} />
+                    {s.commitCount} commits will be rewritten
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>

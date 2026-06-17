@@ -81,7 +81,16 @@ export interface ApplyResult {
   rewrites: CommitRewrite[];
 }
 
+export interface StagedOperation {
+  id: string;
+  summary: string;
+  oldSha: string;
+  details: { field: string; before: string; after: string }[];
+  operations: RewriteOperation[];
+}
+
 const RECENT_REPOS_KEY = 'git-rewriter:recentRepos';
+const STAGED_OPS_KEY = 'git-rewriter:stagedOps';
 
 function loadRecentRepos(): RepoSummary[] {
   try {
@@ -96,16 +105,33 @@ function saveRecentRepos(repos: RepoSummary[]) {
   localStorage.setItem(RECENT_REPOS_KEY, JSON.stringify(repos));
 }
 
+function loadStagedOps(): StagedOperation[] {
+  try {
+    const raw = localStorage.getItem(STAGED_OPS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveStagedOps(ops: StagedOperation[]) {
+  localStorage.setItem(STAGED_OPS_KEY, JSON.stringify(ops));
+}
+
 interface RepositoryState {
   currentRepo: RepoSummary | null;
   scanResult: ScanResult | null;
   isScanning: boolean;
   recentRepos: RepoSummary[];
+  stagedOps: StagedOperation[];
   setRepo: (repo: RepoSummary | null) => void;
   setScanResult: (result: ScanResult | null) => void;
   setIsScanning: (scanning: boolean) => void;
   addRecentRepo: (repo: RepoSummary) => void;
   clearRecentRepos: () => void;
+  stageOp: (op: StagedOperation) => void;
+  unstageOp: (id: string) => void;
+  clearStaged: () => void;
 }
 
 export const useRepositoryStore = create<RepositoryState>((set) => ({
@@ -113,7 +139,11 @@ export const useRepositoryStore = create<RepositoryState>((set) => ({
   scanResult: null,
   isScanning: false,
   recentRepos: loadRecentRepos(),
-  setRepo: (repo) => set({ currentRepo: repo, scanResult: null }),
+  stagedOps: loadStagedOps(),
+  setRepo: (repo) => {
+    saveStagedOps([]);
+    return set({ currentRepo: repo, scanResult: null, stagedOps: [] });
+  },
   setScanResult: (result) => set({ scanResult: result }),
   setIsScanning: (isScanning) => set({ isScanning }),
   addRecentRepo: (repo) => set((state) => {
@@ -125,5 +155,19 @@ export const useRepositoryStore = create<RepositoryState>((set) => ({
   clearRecentRepos: () => {
     saveRecentRepos([]);
     return { recentRepos: [] };
+  },
+  stageOp: (op) => set((state) => {
+    const updated = [...state.stagedOps, op];
+    saveStagedOps(updated);
+    return { stagedOps: updated };
+  }),
+  unstageOp: (id) => set((state) => {
+    const updated = state.stagedOps.filter((o) => o.id !== id);
+    saveStagedOps(updated);
+    return { stagedOps: updated };
+  }),
+  clearStaged: () => {
+    saveStagedOps([]);
+    return { stagedOps: [] };
   },
 }));
