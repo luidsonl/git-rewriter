@@ -128,6 +128,15 @@ pub fn compute_rewrite_plan(
                         is_modified = true;
                     }
                 }
+                RewriteOperation::CommitAuthor(edit) => {
+                    if commit.sha == edit.target_sha {
+                        new_author_name = edit.new_author_name.clone();
+                        new_author_email = edit.new_author_email.clone();
+                        new_committer_name = edit.new_committer_name.clone();
+                        new_committer_email = edit.new_committer_email.clone();
+                        is_modified = true;
+                    }
+                }
             }
         }
 
@@ -186,7 +195,7 @@ pub fn compute_rewrite_plan(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::MessageEdit;
+    use crate::models::{MessageEdit, CommitAuthorEdit};
 
     fn make_commit(
         sha: &str,
@@ -420,6 +429,37 @@ mod tests {
         assert!(plan.rewrites[1].is_modified, "Child should be modified (parent changed)");
         assert_eq!(plan.rewrites[1].parent_shas[0], plan.rewrites[0].new_sha,
             "Child's parent should point to root's new SHA");
+    }
+
+    #[test]
+    fn test_commit_author_edit_only_target() {
+        let commits = vec![
+            make_commit("aaa", "Alice", "alice@old.com", "Alice", "alice@old.com", "first", vec![]),
+            make_commit("bbb", "Bob", "bob@test.com", "Bob", "bob@test.com", "second", vec!["aaa"]),
+        ];
+
+        let operations = vec![
+            RewriteOperation::CommitAuthor(CommitAuthorEdit {
+                target_sha: "aaa".to_string(),
+                new_author_name: "Alice New".to_string(),
+                new_author_email: "alice@new.com".to_string(),
+                new_committer_name: "Alice New".to_string(),
+                new_committer_email: "alice@new.com".to_string(),
+            }),
+        ];
+
+        let plan = compute_rewrite_plan(&commits, &operations);
+
+        assert!(plan.rewrites[0].is_modified, "Target commit should change");
+        assert_eq!(plan.rewrites[0].author_name, "Alice New");
+        assert_eq!(plan.rewrites[0].author_email, "alice@new.com");
+
+        assert!(plan.rewrites[1].is_modified, "Descendant should change due to parent SHA change");
+        assert_eq!(plan.rewrites[1].parent_shas[0], plan.rewrites[0].new_sha,
+            "Bob's parent should point to Alice's new SHA");
+
+        assert_eq!(plan.rewrites[1].author_name, "Bob",
+            "Bob's name should NOT change — only target commit identity changes");
     }
 
     #[test]

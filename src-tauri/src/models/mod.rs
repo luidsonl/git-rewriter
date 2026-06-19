@@ -78,10 +78,20 @@ pub struct AuthorDateEdit {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct CommitAuthorEdit {
+    pub target_sha: String,
+    pub new_author_name: String,
+    pub new_author_email: String,
+    pub new_committer_name: String,
+    pub new_committer_email: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum RewriteOperation {
     Identity(IdentityRewrite),
     Message(MessageEdit),
     AuthorDate(AuthorDateEdit),
+    CommitAuthor(CommitAuthorEdit),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

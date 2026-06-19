@@ -52,10 +52,19 @@ export interface AuthorDateEdit {
   new_commit_date: string;
 }
 
+export interface CommitAuthorEdit {
+  target_sha: string;
+  new_author_name: string;
+  new_author_email: string;
+  new_committer_name: string;
+  new_committer_email: string;
+}
+
 export type RewriteOperation =
   | { Identity: IdentityRewrite }
   | { Message: MessageEdit }
-  | { AuthorDate: AuthorDateEdit };
+  | { AuthorDate: AuthorDateEdit }
+  | { CommitAuthor: CommitAuthorEdit };
 
 export interface CommitRewrite {
   old_sha: string;

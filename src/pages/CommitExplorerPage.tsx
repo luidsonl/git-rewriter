@@ -202,28 +202,15 @@ function CommitPanel({ commit, repoPath, onClose }: CommitPanelProps) {
       editCommitterName !== commit.committer_name ||
       editCommitterEmail !== commit.committer_email
     ) {
-      const rewriteCommitter = editCommitterName !== commit.committer_name || editCommitterEmail !== commit.committer_email;
-      if (editAuthorName !== commit.author_name || editAuthorEmail !== commit.author_email) {
-        operations.push({
-          Identity: {
-            old_name: commit.author_name,
-            old_email: commit.author_email,
-            new_name: editAuthorName,
-            new_email: editAuthorEmail,
-            rewrite_committer: rewriteCommitter,
-          },
-        });
-      } else if (rewriteCommitter) {
-        operations.push({
-          Identity: {
-            old_name: commit.committer_name,
-            old_email: commit.committer_email,
-            new_name: editCommitterName,
-            new_email: editCommitterEmail,
-            rewrite_committer: true,
-          },
-        });
-      }
+      operations.push({
+        CommitAuthor: {
+          target_sha: commit.sha,
+          new_author_name: editAuthorName,
+          new_author_email: editAuthorEmail,
+          new_committer_name: editCommitterName,
+          new_committer_email: editCommitterEmail,
+        },
+      });
     }
 
     if (editAuthorDate !== origAuthorDate.date || editAuthorTime !== origAuthorDate.time || editAuthorTz !== origAuthorDate.tz ||

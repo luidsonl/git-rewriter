@@ -183,8 +183,6 @@ Before rewriting history:
 Automatically create backup references:
 
 * backup branch
-  OR
-* refs/backup/pre-rewrite
 
 Display warning dialog:
 
