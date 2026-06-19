@@ -18,6 +18,22 @@ A desktop GUI for safely rewriting Git history metadata -- author identity, time
 - **Backend:** Rust, Tauri v2
 - **Git Engine:** gix (gitoxide) -- no external git CLI processes
 
+## Screenshots
+
+![Dashboard](docs/img/01.png)
+![Contributors](docs/img/02.png)
+![Contributors](docs/img/03.png)
+![Contributors](docs/img/04.png)
+![Review & Apply](docs/img/05.png)
+![Review & Apply](docs/img/06.png)
+![Apply Modal](docs/img/07.png)
+![Commit Explorer](docs/img/08.png)
+![Commit Explorer](docs/img/09.png)
+![Commit Explorer](docs/img/10.png)
+![Contributors](docs/img/11.png)
+![Contributors](docs/img/12.png)
+![Review & Apply](docs/img/13.png)
+
 ## Architecture
 
 The frontend follows Atomic Design (`atoms`, `molecules`, `organisms`, `templates`, `pages`). All git operations that mutate history create new SHAs (commits are immutable). Changes are staged in a local store first, then applied in batch from the Preview page.
