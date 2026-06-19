@@ -1,6 +1,12 @@
 import { ReactNode } from 'react';
-import { FolderOpen, Loader2 } from 'lucide-react';
+import { FolderOpen, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 export { ConfirmDialog } from './ConfirmDialog';
+export { ToastContainer } from './ToastContainer';
+export { CommitRow } from './CommitRow';
+export { ContributorRow } from './ContributorRow';
+export { FieldDiff } from './FieldDiff';
+export { Pagination } from './Pagination';
+export { ActivityBar } from './ActivityBar';
 
 // ─── StatCard ────────────────────────────────────────────────────────────────
 interface StatCardProps {
@@ -45,24 +51,7 @@ export function EmptyState({ title, description }: EmptyStateProps) {
   );
 }
 
-// ─── ActivityBar ─────────────────────────────────────────────────────────────
-interface ActivityBarProps {
-  value: number;
-  max: number;
-}
-
-export function ActivityBar({ value, max }: ActivityBarProps) {
-  const pct = max > 0 ? Math.round((value / max) * 100) : 0;
-  return (
-    <div className="w-full bg-neutral-900 rounded-full h-1">
-      <div className="bg-neutral-400 h-1 rounded-full" style={{ width: `${pct}%` }} />
-    </div>
-  );
-}
-
 // ─── SortButton ──────────────────────────────────────────────────────────────
-import { ChevronDown, ChevronUp } from 'lucide-react';
-
 interface SortButtonProps {
   label: string;
   active: boolean;

@@ -1,84 +1,14 @@
 import { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { invoke } from '@tauri-apps/api/core';
-import { useRepositoryStore, Contributor, RewritePlan } from '../stores/repositoryStore';
+import { useRepositoryStore, RewritePlan } from '../stores/repositoryStore';
 import { useNotificationStore } from '../stores/notificationStore';
-import { Search, GitCommit, Eye, Plus, Loader2, Pencil } from 'lucide-react';
-import { TextInput, Avatar, PageTitle, Button } from '../components/atoms';
-import { EmptyState, ActivityBar, SortButton } from '../components/molecules';
+import { Search, Eye, Plus, Pencil } from 'lucide-react';
+import { TextInput, PageTitle, Button, Spinner } from '../components/atoms';
+import { EmptyState, SortButton, ContributorRow } from '../components/molecules';
 
 type SortField = 'name' | 'commit_count';
 type SortDir = 'asc' | 'desc';
-
-function ContributorRow({
-  contributor, maxCommits, rewriteMode, edit, onEdit,
-}: {
-  contributor: Contributor;
-  maxCommits: number;
-  rewriteMode: boolean;
-  edit?: { name: string; email: string };
-  onEdit?: (edit: { name: string; email: string }) => void;
-}) {
-  if (rewriteMode && edit && onEdit) {
-    const modified = edit.name !== contributor.name || edit.email !== contributor.email;
-    return (
-      <tr className="border-b border-neutral-900 hover:bg-neutral-900/40 transition-colors">
-        <td className="py-3 px-4">
-          <div className="flex items-center gap-3">
-            <Avatar name={contributor.name} />
-            <div className="flex flex-col gap-1">
-              <input
-                type="text"
-                value={edit.name}
-                onChange={(e) => onEdit({ ...edit, name: e.target.value })}
-                className="w-32 bg-neutral-800 rounded px-2 py-1 text-sm text-white"
-              />
-              <input
-                type="text"
-                value={edit.email}
-                onChange={(e) => onEdit({ ...edit, email: e.target.value })}
-                className="w-48 bg-neutral-800 rounded px-2 py-1 text-xs text-white font-mono"
-              />
-            </div>
-            {modified && <span className="text-[10px] text-amber-400">edited</span>}
-          </div>
-        </td>
-        <td className="py-3 px-4">
-          <div className="flex items-center gap-1.5 text-sm text-neutral-300">
-            <GitCommit size={14} className="text-neutral-500" />
-            {contributor.commit_count}
-          </div>
-        </td>
-        <td className="py-3 px-4 w-40">
-          <ActivityBar value={contributor.commit_count} max={maxCommits} />
-        </td>
-      </tr>
-    );
-  }
-
-  return (
-    <tr className="border-b border-neutral-900 hover:bg-neutral-900/40 transition-colors">
-      <td className="py-3 px-4">
-        <div className="flex items-center gap-3">
-          <Avatar name={contributor.name} />
-          <div>
-            <div className="text-sm text-white">{contributor.name}</div>
-            <div className="text-xs text-neutral-500 font-mono">{contributor.email}</div>
-          </div>
-        </div>
-      </td>
-      <td className="py-3 px-4">
-        <div className="flex items-center gap-1.5 text-sm text-neutral-300">
-          <GitCommit size={14} className="text-neutral-500" />
-          {contributor.commit_count}
-        </div>
-      </td>
-      <td className="py-3 px-4 w-40">
-        <ActivityBar value={contributor.commit_count} max={maxCommits} />
-      </td>
-    </tr>
-  );
-}
 
 export function ContributorsPage() {
   const { t } = useTranslation();
@@ -227,7 +157,7 @@ export function ContributorsPage() {
               )}
               <div className="flex gap-2">
                 <Button size="sm" variant="primary" onClick={handlePreview} disabled={rewriteLoading}>
-                  {rewriteLoading ? <Loader2 size={12} className="animate-spin" /> : <Eye size={12} />}
+                  {rewriteLoading ? <Spinner /> : <Eye size={12} />}
                   Preview
                 </Button>
                 <Button size="sm" variant="primary" onClick={handleStage}>

@@ -1,11 +1,6 @@
 import { useNotificationStore } from '../../stores/notificationStore';
 import { X } from 'lucide-react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from '../../utils/cn';
 
 export function ToastContainer() {
   const { toasts, removeToast } = useNotificationStore();

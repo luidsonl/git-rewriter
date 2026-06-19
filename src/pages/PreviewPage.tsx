@@ -5,7 +5,7 @@ import { useRepositoryStore, Contributor, ApplyResult, RewritePlan, CommitInfo }
 import { useNotificationStore } from '../stores/notificationStore';
 import { GitCommit, Users, Shuffle, Loader2, Trash2, Play, FileText } from 'lucide-react';
 import { Button, Avatar, Badge, PageTitle } from '../components/atoms';
-import { ConfirmDialog } from '../components/molecules';
+import { ConfirmDialog, FieldDiff } from '../components/molecules';
 
 interface Suggestion {
   targetName: string;
@@ -221,12 +221,7 @@ export function PreviewPage() {
                     </div>
                     <div className="space-y-0.5 mt-2">
                       {op.details.map((d, i) => (
-                        <div key={i} className="flex items-center gap-2 text-xs">
-                          <span className="text-neutral-500 w-24 shrink-0">{d.field}</span>
-                          <span className="text-neutral-500 line-through truncate">{d.before}</span>
-                          <span className="text-neutral-700">→</span>
-                          <span className="text-emerald-400 truncate">{d.after}</span>
-                        </div>
+                        <FieldDiff key={i} field={d.field} before={d.before} after={d.after} />
                       ))}
                     </div>
                   </div>
@@ -271,12 +266,7 @@ export function PreviewPage() {
                   </div>
                   <div className="space-y-0.5">
                     {diffs.map((d, i) => (
-                      <div key={i} className="flex items-center gap-2 text-xs">
-                        <span className="text-neutral-500 w-24 shrink-0">{d.field}</span>
-                        <span className="text-neutral-500 line-through truncate">{d.before}</span>
-                        <span className="text-neutral-700">→</span>
-                        <span className="text-emerald-400 truncate">{d.after}</span>
-                      </div>
+                      <FieldDiff key={i} field={d.field} before={d.before} after={d.after} />
                     ))}
                   </div>
                   {original && (
