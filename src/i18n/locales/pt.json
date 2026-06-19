@@ -20,6 +20,49 @@
       "open_repo": "Abrir Repositório",
       "cancel": "Cancelar",
       "save": "Salvar"
+    },
+    "commit": {
+      "details": "Detalhes do Commit",
+      "edit": "Editar",
+      "close": "Fechar",
+      "staged": "Preparado ✓",
+      "go_to_preview": "Ir para <previewLink>Pré-visualizar</previewLink> para aplicar.",
+      "stage": "Preparar",
+      "sha": "SHA",
+      "message": "Mensagem",
+      "author": "Autor",
+      "author_name": "Nome do autor",
+      "author_email": "Email do autor",
+      "date": "Data",
+      "time": "Hora",
+      "tz": "Fuso",
+      "sync_committer": "Sincronizar committer com autor",
+      "committer_date": "Data do Committer",
+      "synced": "sincronizado",
+      "committer_identity": "Identidade do Committer",
+      "committer_name": "Nome do committer",
+      "committer_email": "Email do committer",
+      "parents": "Parentes ({{count}})",
+      "no_changes": "Nenhuma alteração para preparar",
+      "staged_success": "Alterações preparadas. Revise e aplique em Pré-visualizar."
+    },
+    "explorer": {
+      "no_repo": "Nenhum repositório aberto.",
+      "no_repo_desc": "Abra um repositório pelo Painel primeiro.",
+      "search_placeholder": "Buscar por SHA, mensagem ou autor…",
+      "sha": "SHA",
+      "message": "Mensagem",
+      "author": "Autor",
+      "date": "Data",
+      "no_results": "Nenhum commit corresponde à sua busca.",
+      "prev": "← Anterior",
+      "next": "Próximo →",
+      "commit_count": "{{count}} commits",
+      "review_staged": "Rever {{count}} alteração preparada",
+      "review_staged_plural": "Rever {{count}} alterações preparadas"
+    },
+    "error": {
+      "chrono_warning": "O commit pai {{sha}} tem uma data posterior a este commit."
     }
   }
 }

@@ -20,6 +20,49 @@
       "open_repo": "Open Repository",
       "cancel": "Cancel",
       "save": "Save"
+    },
+    "commit": {
+      "details": "Commit Details",
+      "edit": "Edit",
+      "close": "Close",
+      "staged": "Staged ✓",
+      "go_to_preview": "Go to <previewLink>Preview</previewLink> to apply.",
+      "stage": "Stage",
+      "sha": "SHA",
+      "message": "Message",
+      "author": "Author",
+      "author_name": "Author name",
+      "author_email": "Author email",
+      "date": "Date",
+      "time": "Time",
+      "tz": "TZ",
+      "sync_committer": "Sync committer with author",
+      "committer_date": "Committer Date",
+      "synced": "synced",
+      "committer_identity": "Committer Identity",
+      "committer_name": "Committer name",
+      "committer_email": "Committer email",
+      "parents": "Parents ({{count}})",
+      "no_changes": "No changes to stage",
+      "staged_success": "Changes staged. Review & apply from Preview."
+    },
+    "explorer": {
+      "no_repo": "No repository open.",
+      "no_repo_desc": "Open a repository from the Dashboard first.",
+      "search_placeholder": "Search by SHA, message or author…",
+      "sha": "SHA",
+      "message": "Message",
+      "author": "Author",
+      "date": "Date",
+      "no_results": "No commits match your search.",
+      "prev": "← Prev",
+      "next": "Next →",
+      "commit_count": "{{count}} commits",
+      "review_staged": "Review {{count}} staged change",
+      "review_staged_plural": "Review {{count}} staged changes"
+    },
+    "error": {
+      "chrono_warning": "Parent commit {{sha}} has a later date than this commit."
     }
   }
 }
