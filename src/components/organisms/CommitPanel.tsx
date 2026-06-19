@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useTranslation, Trans } from 'react-i18next';
+import { useTranslation } from 'react-i18next';
 import { useRepositoryStore, CommitInfo, StagedOperation } from '../../stores/repositoryStore';
 import { useNotificationStore } from '../../stores/notificationStore';
 import { TextInput, Avatar, Badge, Button } from '../atoms';
@@ -18,7 +17,6 @@ interface CommitPanelProps {
 
 export function CommitPanel({ commit, onClose }: CommitPanelProps) {
   const { t } = useTranslation();
-  const navigate = useNavigate();
   const { addToast } = useNotificationStore();
   const { stageOp } = useRepositoryStore();
   const [isEditing, setIsEditing] = useState(false);
@@ -33,7 +31,6 @@ export function CommitPanel({ commit, onClose }: CommitPanelProps) {
   const [editCommitDate, setEditCommitDate] = useState(parseDateFields(commit.commit_date).date);
   const [editCommitTime, setEditCommitTime] = useState(parseDateFields(commit.commit_date).time);
   const [editCommitTz, setEditCommitTz] = useState(parseDateFields(commit.commit_date).tz);
-  const [isStaged, setIsStaged] = useState(false);
   const [chronoWarning, setChronoWarning] = useState<string | null>(null);
   const [syncCommitter, setSyncCommitter] = useState(true);
 
@@ -185,8 +182,8 @@ export function CommitPanel({ commit, onClose }: CommitPanelProps) {
       operations,
     };
     stageOp(op);
-    setIsStaged(true);
     addToast(t('commit.staged_success'), 'success');
+    onClose();
   };
 
   return (
@@ -194,7 +191,7 @@ export function CommitPanel({ commit, onClose }: CommitPanelProps) {
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-neutral-400">{t('commit.details')}</span>
         <div className="flex items-center gap-2">
-          {!isEditing && !isStaged && (
+          {!isEditing && (
             <button onClick={() => setIsEditing(true)} className="text-xs text-neutral-500 hover:text-white transition-colors flex items-center gap-1">
               <Pencil size={12} /> {t('commit.edit')}
             </button>
@@ -202,15 +199,6 @@ export function CommitPanel({ commit, onClose }: CommitPanelProps) {
           <button onClick={onClose} className="text-xs text-neutral-600 hover:text-white transition-colors">{t('commit.close')}</button>
         </div>
       </div>
-
-      {isStaged && (
-        <div className="border border-emerald-500/30 bg-emerald-500/5 rounded-md p-3">
-          <p className="text-xs text-emerald-400 font-medium">{t('commit.staged')}</p>
-          <p className="text-xs text-neutral-500 mt-1">
-            <Trans i18nKey="commit.go_to_preview" components={{ previewLink: <button onClick={() => navigate('/preview')} className="text-emerald-400 hover:underline" /> }} />
-          </p>
-        </div>
-      )}
 
       <div>
         <p className="text-xs text-neutral-500 mb-1">{t('commit.sha')}</p>
@@ -380,7 +368,7 @@ export function CommitPanel({ commit, onClose }: CommitPanelProps) {
         </div>
       )}
 
-      {isEditing && !isStaged && (
+      {isEditing && (
         <div className="flex gap-2 mt-2">
           <Button size="sm" variant="primary" onClick={handleStage} disabled={!hasChanges}>
             {t('commit.stage')}

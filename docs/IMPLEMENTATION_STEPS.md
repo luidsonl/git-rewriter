@@ -18,8 +18,8 @@ This document outlines the milestones for developing the Git Rewriter.
 - [x] Write unit tests for the scanner logic.
 
 ## Milestone 3: Frontend MVP - Data Visualization
-- [x] Build UI Atoms (Button, TextInput, Avatar, Badge, PageTitle).
-- [x] Build Molecules (StatCard, EmptyState, ActivityBar, SortButton, RepoHeader).
+- [x] Build UI Atoms (Button, TextInput, Avatar, Badge, PageTitle, Spinner).
+- [x] Build Molecules (StatCard, EmptyState, ActivityBar, SortButton, RepoHeader, CommitRow, ContributorRow, FieldDiff, Pagination).
 - [x] Build Dashboard Page (stats overview — repo name, commits, contributors, branches).
 - [x] Build Contributors Page (sortable table with search and activity bars).
 - [x] Build Commit Explorer Page (searchable list with detail panel and pagination).
@@ -47,6 +47,10 @@ This document outlines the milestones for developing the Git Rewriter.
 - [x] PreviewPage rewritten as staging review area with staged changes list, unstaging, identity merge suggestions, Apply All.
 - [x] Sync committer checkbox: when checked, committer date/time/TZ and name/email mirror author fields via useEffect.
 - [x] Batch author rewrite: list all unique authors from the commit graph with editable name/email, preview affected commits, stage Identity operations.
+- [x] Refactor to Atomic Design: extract CommitPanel (organism), CommitRow/ContributorRow/FieldDiff/Pagination (molecules), Spinner (atom), date utils and cn helper (utils).
+- [x] All hardcoded strings moved to i18n (en/pt).
+- [x] Staged-operation: remove intermediate preview step in CommitPanel — "Stage" goes directly to staging.
+- [x] Per-commit author edit uses CommitAuthor operation (target_sha) instead of Identity (which rewrites all matching commits).
 - [ ] UI polish, loading states, empty states.
 
 ## Milestone 6: Polish and QA

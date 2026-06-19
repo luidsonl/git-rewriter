@@ -309,39 +309,41 @@ Organize components into:
 Small reusable UI pieces:
 
 * Button
-* Input
-* Badge
+* TextInput
 * Avatar
-* Icon
-* Tooltip
+* Badge
+* PageTitle
+* Spinner
 
 ## Molecules
 
 Composed atoms:
 
-* SearchBar
+* StatCard
+* ScanningIndicator
+* EmptyState
+* ActivityBar
+* SortButton
+* RepoHeader
+* ConfirmDialog
+* ToastContainer
 * CommitRow
 * ContributorRow
-* StatCard
-* FormField
+* FieldDiff
+* Pagination
 
 ## Organisms
 
 Complex UI sections:
 
 * Sidebar
-* ContributorsTable
-* CommitList
-* CommitDetailsPanel
-* RewritePreviewPanel
+* CommitPanel
 
 ## Templates
 
 Layout structures:
 
-* DashboardTemplate
-* ExplorerTemplate
-* SettingsTemplate
+* MainLayout
 
 ## Pages
 
@@ -350,7 +352,7 @@ Route-level screens:
 * DashboardPage
 * ContributorsPage
 * CommitExplorerPage
-* RewritePreviewPage
+* PreviewPage
 * SettingsPage
 
 Components must:
@@ -361,9 +363,10 @@ Components must:
 
 Business logic should live in:
 
-* hooks
-* services
+* hooks (future)
+* services (future)
 * stores
+* utils
 
 ---
 
@@ -375,15 +378,40 @@ Frontend:
 src/
  ├── components/
  │   ├── atoms/
+ │   │   ├── index.tsx       (Button, TextInput, Avatar, Badge, PageTitle)
+ │   │   └── Spinner.tsx
  │   ├── molecules/
+ │   │   ├── index.tsx       (barrel export)
+ │   │   ├── ActivityBar.tsx
+ │   │   ├── CommitRow.tsx
+ │   │   ├── ConfirmDialog.tsx
+ │   │   ├── ContributorRow.tsx
+ │   │   ├── FieldDiff.tsx
+ │   │   ├── Pagination.tsx
+ │   │   └── ToastContainer.tsx
  │   ├── organisms/
+ │   │   ├── index.tsx       (barrel export)
+ │   │   ├── Sidebar.tsx
+ │   │   └── CommitPanel.tsx
  │   └── templates/
+ │       └── MainLayout.tsx
  ├── pages/
- ├── hooks/
- ├── services/
+ │   ├── DashboardPage.tsx
+ │   ├── ContributorsPage.tsx
+ │   ├── CommitExplorerPage.tsx
+ │   ├── PreviewPage.tsx
+ │   └── SettingsPage.tsx
  ├── stores/
- ├── types/
+ │   ├── repositoryStore.ts
+ │   └── notificationStore.ts
+ ├── i18n/
+ │   ├── config.ts
+ │   └── locales/
+ │       ├── en.json
+ │       └── pt.json
  ├── utils/
+ │   ├── cn.ts
+ │   └── date.ts
  └── tests/
 ```
 
@@ -392,12 +420,18 @@ Backend:
 ```text
 src-tauri/
  ├── src/
- │   ├── commands/
- │   ├── git_engine/
+ │   ├── main.rs
+ │   ├── lib.rs              (Tauri command handlers)
  │   ├── models/
- │   ├── services/
- │   └── main.rs
+ │   │   └── mod.rs          (CommitInfo, Contributor, RewriteOperation, etc.)
+ │   └── git_engine/
+ │       ├── mod.rs
+ │       ├── scanner.rs
+ │       ├── rewriter.rs
+ │       └── applier.rs
  └── tests/
+     ├── repo_test.rs
+     └── setup_test.rs
 ```
 
 ---

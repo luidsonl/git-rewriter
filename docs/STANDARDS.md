@@ -7,11 +7,13 @@
 
 ## 2. Frontend Architecture (Atomic Design)
 Components must follow the Atomic Design pattern:
-- `atoms/`: Basic UI building blocks (Buttons, Inputs, Text, Badges, Icons). Cannot contain other atomic components (except basic elements like text inside a button). No business logic.
-- `molecules/`: Simple groups of UI elements functioning together as a unit (Search Bar, Form Field, User Card).
-- `organisms/`: Relatively complex UI components that form distinct sections of an interface (Sidebar, Header, Contributor Table, Commit Graph).
+- `atoms/`: Basic UI building blocks (Button, TextInput, Avatar, Badge, PageTitle, Spinner). Cannot contain other atomic components (except basic elements like text inside a button). No business logic.
+- `molecules/`: Simple groups of UI elements functioning together as a unit (StatCard, CommitRow, ContributorRow, Pagination, FieldDiff).
+- `organisms/`: Relatively complex UI components that form distinct sections of an interface (Sidebar, CommitPanel).
 - `templates/`: Page-level objects that place components into a layout. Usually don't fetch data.
 - `pages/`: Specific instances of templates that handle routing, data fetching, and state management.
+- `utils/`: Pure utility functions with no UI (date formatting, cn helper).
+- Barrel exports: Each component directory must have an `index.tsx` that re-exports all public components via named exports.
 
 ## 3. Tech Stack Conventions
 - **Styling (Tailwind CSS):** 
